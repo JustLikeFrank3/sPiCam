@@ -1,0 +1,22 @@
+PiCam Workspace Instructions
+
+1) Open the workspace root: /Users/fvm3/Development/PiCam
+
+2) Pi server (on Pi):
+   - cd pi-server
+   - python3 -m venv .venv
+   - source .venv/bin/activate
+   - pip install -r requirements.txt
+   - uvicorn main:app --host 0.0.0.0 --port 8000
+
+3) Mobile app (local):
+   - cd mobile-app
+   - npm install
+   - npm run start
+
+4) Update the base URL in the app to your Pi IP:
+   - Example: http://raspberrypi.local:8000
+
+5) Test:
+   - /stream in a browser
+   - /photo (POST) and /events

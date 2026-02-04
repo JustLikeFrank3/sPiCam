@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "ShutterGuard",
+    "slug": "shutterguard",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "icon": "./assets/shutterguard-logo.png",
+    "splash": {
+      "image": "./assets/shutterguard-logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0f172a"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/shutterguard-logo.png",
+        "backgroundColor": "#0f172a"
+      }
+    },
+    "ios": {
+      "infoPlist": {
+        "NSLocalNetworkUsageDescription": "PiCam needs local network access to connect to the camera.",
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
+      }
+    }
+  }
+}
