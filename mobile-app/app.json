@@ -5,15 +5,15 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
-    "icon": "./assets/sPiCamLogoV2.png",
+    "icon": "./assets/spicam_icon_1024.png",
     "splash": {
-      "image": "./assets/sPiCamLogoV2.png",
+      "image": "./assets/spicam_icon_1024.png",
       "resizeMode": "contain",
       "backgroundColor": "#0f172a"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/sPiCamLogoV2.png",
+        "foregroundImage": "./assets/spicam_icon_1024.png",
         "backgroundColor": "#0f172a"
       }
     },

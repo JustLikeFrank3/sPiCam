@@ -4,7 +4,7 @@ import Constants from 'expo-constants'
 import { WebView } from 'react-native-webview'
 
 export default function App() {
-  const logo = require('./assets/sPiCamLogoV2.png')
+  const logo = require('./assets/spicam_icon_1024.png')
   const defaultBaseUrl = Constants.isDevice
     ? 'http://raspberrypi.local:8000'
     : Platform.OS === 'android'
