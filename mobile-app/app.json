@@ -1,25 +1,25 @@
 {
   "expo": {
-    "name": "ShutterGuard",
-    "slug": "shutterguard",
+    "name": "sPiCam",
+    "slug": "spicam",
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
-    "icon": "./assets/shutterguard-logo.png",
+    "icon": "./assets/sPiCamLogoV2.png",
     "splash": {
-      "image": "./assets/shutterguard-logo.png",
+      "image": "./assets/sPiCamLogoV2.png",
       "resizeMode": "contain",
       "backgroundColor": "#0f172a"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/shutterguard-logo.png",
+        "foregroundImage": "./assets/sPiCamLogoV2.png",
         "backgroundColor": "#0f172a"
       }
     },
     "ios": {
       "infoPlist": {
-        "NSLocalNetworkUsageDescription": "PiCam needs local network access to connect to the camera.",
+        "NSLocalNetworkUsageDescription": "sPiCam needs local network access to connect to the camera.",
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
         }
