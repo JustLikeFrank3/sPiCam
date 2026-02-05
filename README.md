@@ -1,7 +1,5 @@
 <p align="center">
-   <img src="mobile-app/assets/sPiCamLogoV2.svg?raw=1" width="420" alt="sPiCam logo" />
-   <br />
-   <img src="mobile-app/assets/spicam_icon_1024.png?raw=1" width="96" alt="sPiCam app icon" />
+   <img src="mobile-app/assets/spicam_icons/icon_512.png?raw=1" width="360" alt="sPiCam" />
 </p>
 
 # sPiCam
