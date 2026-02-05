@@ -9,8 +9,34 @@ __pycache__/
 # Node
 node_modules/
 
+# Expo
+mobile-app/.expo/
+**/.expo/
+
+# Logs
+*.log
+
 # OS
 .DS_Store
+
+# Xcode / iOS
+**/Pods/
+**/build/
+**/DerivedData/
+**/xcuserdata/
+**/*.xcuserstate
+**/*.xccheckout
+**/*.xcscmblueprint
+
+# Xcode local env
+**/.xcode.env.local
+
+# Xcode workspace hygiene files
+**/IDEWorkspaceChecks.plist
+
+# Generated Xcode workspace metadata (mobile-app/ios)
+mobile-app/ios/*.xcworkspace/
+mobile-app/ios/*.xcodeproj/project.xcworkspace/
 
 # Media
 pi-server/media/
