@@ -1,6 +1,12 @@
-# sPiCam Workspace
+<p align="center">
+   <img src="mobile-app/assets/sPiCamLogoV2.svg?raw=1" width="420" alt="sPiCam logo" />
+   <br />
+   <img src="mobile-app/assets/spicam_icon_1024.png?raw=1" width="96" alt="sPiCam app icon" />
+</p>
 
-A Raspberry Pi Zero W camera project with a FastAPI server and a React Native mobile app.
+# sPiCam
+
+A Raspberry Pi camera project with a FastAPI server and an iOS mobile app.
 
 ## Structure
 - `pi-server/` FastAPI server (stream + photo + events)
