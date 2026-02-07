@@ -1,27 +1,31 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import { SafeAreaView, StyleSheet, Text, View, Pressable, TextInput, FlatList, Platform, Image } from 'react-native'
+import { SafeAreaView, StyleSheet, Text, View, Pressable, TextInput, FlatList, Platform, Image, ScrollView } from 'react-native'
 import Constants from 'expo-constants'
 import { WebView } from 'react-native-webview'
 
 export default function App() {
   const logo = require('./assets/spicam_icon_1024.png')
   const defaultBaseUrl = Constants.isDevice
-    ? 'http://raspberrypi.local:8000'
+    ? 'http://100.86.177.103:8000'
     : Platform.OS === 'android'
       ? 'http://10.0.2.2:8000'
-      : 'http://localhost:8000'
+      : 'http://100.86.177.103:8000'
   const [baseUrl, setBaseUrl] = useState(defaultBaseUrl)
   const [status, setStatus] = useState('')
   const [events, setEvents] = useState<Array<{ filename: string; path: string; timestamp: number }>>([])
   const [selectedMedia, setSelectedMedia] = useState<string | null>(null)
   const [azureBlobs, setAzureBlobs] = useState<Array<{ name: string; last_modified?: string | null }>>([])
   const [selectedAzure, setSelectedAzure] = useState<string | null>(null)
+  const [galleryMode, setGalleryMode] = useState<'recents' | 'cloud' | null>(null)
+  const [recentsFilter, setRecentsFilter] = useState<'all' | 'photos' | 'videos'>('all')
+  const [notifications, setNotifications] = useState<Array<{ message: string; kind?: string; timestamp: string }>>([])
   const [pan, setPan] = useState(90)
   const [tilt, setTilt] = useState(90)
   const [panTiltStep, setPanTiltStep] = useState(10)
   const [servoAvailable, setServoAvailable] = useState(false)
   const [servoEnabled, setServoEnabled] = useState(false)
   const [servoError, setServoError] = useState<string | null>(null)
+  const [panTiltCollapsed, setPanTiltCollapsed] = useState(false)
 
   const fetchEvents = useCallback(async () => {
     try {
@@ -63,11 +67,24 @@ export default function App() {
     }
   }, [baseUrl])
 
+  const fetchNotifications = useCallback(async () => {
+    try {
+      const res = await fetch(`${baseUrl}/notifications`)
+      const json = await res.json()
+      if (Array.isArray(json)) {
+        setNotifications(json)
+      }
+    } catch (error) {
+      // ignore notification errors
+    }
+  }, [baseUrl])
+
   useEffect(() => {
     fetchEvents()
     fetchAzure()
     fetchPanTiltStatus()
-  }, [fetchEvents, fetchAzure, fetchPanTiltStatus, baseUrl])
+    fetchNotifications()
+  }, [fetchEvents, fetchAzure, fetchPanTiltStatus, fetchNotifications, baseUrl])
 
   const takePhoto = async () => {
     try {
@@ -76,12 +93,16 @@ export default function App() {
       const json = await res.json()
       setStatus(`Saved: ${json.filename ?? json.path}`)
       fetchEvents()
+      fetchAzure()
     } catch (error) {
       setStatus('Failed to capture photo')
     }
   }
 
   const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
+
+  const isVideoFile = (name: string) => name.toLowerCase().endsWith('.avi')
+  const isPhotoFile = (name: string) => /(\.jpe?g|\.png)$/i.test(name)
 
   const updatePanTilt = async (deltaPan: number, deltaTilt: number) => {
     const nextPan = clamp(pan + deltaPan, 0, 180)
@@ -120,31 +141,164 @@ export default function App() {
   }
 
   const renderEvent = ({ item }: { item: { filename: string; path: string; timestamp: number } }) => {
+    const isVideo = isVideoFile(item.filename)
     return (
       <Pressable style={styles.eventItem} onPress={() => setSelectedMedia(item.filename)}>
-        <Text style={styles.eventText}>{item.filename}</Text>
-        <Text style={styles.eventTime}>{new Date(item.timestamp * 1000).toLocaleString()}</Text>
+        <View style={styles.eventRow}>
+          <View style={styles.eventThumb}>
+            {isPhotoFile(item.filename) ? (
+              <Image source={{ uri: `${baseUrl}/media/${item.filename}` }} style={styles.eventThumbImage} />
+            ) : (
+              <Text style={styles.eventThumbLabel}>{isVideo ? 'VIDEO' : 'FILE'}</Text>
+            )}
+          </View>
+          <View style={styles.eventMeta}>
+            <Text style={styles.eventTitle} numberOfLines={1}>
+              {item.filename}
+            </Text>
+            <Text style={styles.eventTime}>{new Date(item.timestamp * 1000).toLocaleString()}</Text>
+            <View style={styles.eventPillRow}>
+              <View style={styles.eventPill}>
+                <Text style={styles.eventPillText}>{isVideo ? 'Video' : 'Photo'}</Text>
+              </View>
+            </View>
+          </View>
+          <Text style={styles.eventChevron}>›</Text>
+        </View>
       </Pressable>
     )
   }
 
   const renderAzure = ({ item }: { item: { name: string; last_modified?: string | null } }) => {
+    const isVideo = isVideoFile(item.name)
     return (
       <Pressable style={styles.eventItem} onPress={() => setSelectedAzure(item.name)}>
-        <Text style={styles.eventText}>{item.name}</Text>
-        {item.last_modified ? (
-          <Text style={styles.eventTime}>{new Date(item.last_modified).toLocaleString()}</Text>
-        ) : null}
+        <View style={styles.eventRow}>
+          <View style={styles.eventThumb}>
+            {isPhotoFile(item.name) ? (
+              <Image source={{ uri: `${baseUrl}/azure/media/${item.name}` }} style={styles.eventThumbImage} />
+            ) : (
+              <Text style={styles.eventThumbLabel}>{isVideo ? 'VIDEO' : 'FILE'}</Text>
+            )}
+          </View>
+          <View style={styles.eventMeta}>
+            <Text style={styles.eventTitle} numberOfLines={1}>
+              {item.name}
+            </Text>
+            {item.last_modified ? (
+              <Text style={styles.eventTime}>{new Date(item.last_modified).toLocaleString()}</Text>
+            ) : null}
+            <View style={styles.eventPillRow}>
+              <View style={styles.eventPill}>
+                <Text style={styles.eventPillText}>{isVideo ? 'Video' : 'Photo'}</Text>
+              </View>
+            </View>
+          </View>
+          <Text style={styles.eventChevron}>›</Text>
+        </View>
       </Pressable>
+    )
+  }
+
+  if (selectedMedia) {
+    return (
+      <SafeAreaView style={[styles.container, { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000 }]}>
+        <View style={styles.previewScreen}>
+          <View style={styles.sectionHeader}>
+            <Pressable onPress={() => setSelectedMedia(null)}>
+              <Text style={styles.link}>Back</Text>
+            </Pressable>
+            <Text style={styles.sectionTitle}>Preview</Text>
+            <View style={{ width: 48 }} />
+          </View>
+          <View style={styles.previewContainer}>
+            <Image 
+              source={{ uri: `${baseUrl}/media/${selectedMedia}` }} 
+              style={styles.previewImage}
+              resizeMode="contain"
+            />
+          </View>
+        </View>
+      </SafeAreaView>
+    )
+  }
+
+  if (selectedAzure) {
+    return (
+      <SafeAreaView style={[styles.container, { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000 }]}>
+        <View style={styles.previewScreen}>
+          <View style={styles.sectionHeader}>
+            <Pressable onPress={() => setSelectedAzure(null)}>
+              <Text style={styles.link}>Back</Text>
+            </Pressable>
+            <Text style={styles.sectionTitle}>Cloud Preview</Text>
+            <View style={{ width: 48 }} />
+          </View>
+          <View style={styles.previewContainer}>
+            <Image 
+              source={{ uri: `${baseUrl}/azure/media/${selectedAzure}` }} 
+              style={styles.previewImage}
+              resizeMode="contain"
+            />
+          </View>
+        </View>
+      </SafeAreaView>
+    )
+  }
+
+  if (galleryMode) {
+    const isRecents = galleryMode === 'recents'
+    const filteredEvents = events.filter(item => {
+      if (recentsFilter === 'all') return true
+      if (recentsFilter === 'photos') return isPhotoFile(item.filename)
+      return isVideoFile(item.filename)
+    })
+    const items = isRecents ? filteredEvents : azureBlobs
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.sectionHeader}>
+          <Pressable onPress={() => setGalleryMode(null)}>
+            <Text style={styles.link}>Back</Text>
+          </Pressable>
+          <Text style={styles.sectionTitle}>{isRecents ? `Recent Events (${items.length})` : `Cloud Photos (${items.length})`}</Text>
+          <View style={{ width: 48 }} />
+        </View>
+
+        {isRecents && (
+          <View style={styles.filterRow}>
+            {(['all', 'photos', 'videos'] as const).map(filter => (
+              <Pressable
+                key={filter}
+                onPress={() => setRecentsFilter(filter)}
+                style={recentsFilter === filter ? styles.filterChipActive : styles.filterChip}
+              >
+                <Text style={recentsFilter === filter ? styles.filterChipActiveText : styles.filterChipText}>
+                  {filter === 'all' ? 'All' : filter === 'photos' ? 'Photos' : 'Videos'}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        )}
+
+        <FlatList
+          data={items}
+          keyExtractor={item => (isRecents ? (item as any).filename : (item as any).name)}
+          renderItem={isRecents ? renderEvent : renderAzure}
+          style={styles.eventsListFull}
+          contentContainerStyle={styles.eventsContent}
+          ListEmptyComponent={<Text style={styles.emptyText}>No items yet.</Text>}
+        />
+      </SafeAreaView>
     )
   }
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Image source={logo} style={styles.logo} resizeMode="contain" />
-        <Text style={styles.title}>sPiCam</Text>
-      </View>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={styles.header}>
+          <Image source={logo} style={styles.logo} resizeMode="contain" />
+          <Text style={styles.title}>sPiCam</Text>
+        </View>
 
       <View style={styles.inputRow}>
         <Text style={styles.label}>Base URL</Text>
@@ -163,50 +317,57 @@ export default function App() {
 
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Pan / Tilt</Text>
-        <Text style={styles.controlValue}>Pan {Math.round(pan)}° · Tilt {Math.round(tilt)}°</Text>
+        <Pressable onPress={() => setPanTiltCollapsed(prev => !prev)}>
+          <Text style={styles.link}>{panTiltCollapsed ? 'Show' : 'Hide'}</Text>
+        </Pressable>
       </View>
 
-      <View style={styles.controlStatusRow}>
-        <Text style={styles.controlStatusText}>
-          {servoEnabled ? 'Servo enabled' : 'Servo disabled'} · {servoAvailable ? 'Available' : 'Unavailable'}
-        </Text>
-        {servoError ? <Text style={styles.controlStatusError}>{servoError}</Text> : null}
-      </View>
-
-      <View style={styles.stepRow}>
-        <Text style={styles.controlValue}>Step</Text>
-        {[5, 10, 20].map(step => (
-          <Pressable
-            key={step}
-            style={step === panTiltStep ? styles.stepButtonActive : styles.stepButton}
-            onPress={() => setPanTiltStep(step)}
-          >
-            <Text style={step === panTiltStep ? styles.stepButtonActiveText : styles.stepButtonText}>
-              {step}°
+      {!panTiltCollapsed && (
+        <>
+          <Text style={styles.controlValue}>Pan {Math.round(pan)}° · Tilt {Math.round(tilt)}°</Text>
+          <View style={styles.controlStatusRow}>
+            <Text style={styles.controlStatusText}>
+              {servoEnabled ? 'Servo enabled' : 'Servo disabled'} · {servoAvailable ? 'Available' : 'Unavailable'}
             </Text>
-          </Pressable>
-        ))}
-      </View>
+            {servoError ? <Text style={styles.controlStatusError}>{servoError}</Text> : null}
+          </View>
 
-      <View style={styles.controlPad}>
-        <Pressable style={styles.controlButton} onPress={() => updatePanTilt(0, -panTiltStep)}>
-          <Text style={styles.controlButtonText}>↑</Text>
-        </Pressable>
-        <View style={styles.controlRow}>
-          <Pressable style={styles.controlButton} onPress={() => updatePanTilt(-panTiltStep, 0)}>
-            <Text style={styles.controlButtonText}>←</Text>
-          </Pressable>
-          <Pressable style={styles.controlButtonAccent} onPress={centerPanTilt}>
-            <Text style={styles.controlButtonAccentText}>Center</Text>
-          </Pressable>
-          <Pressable style={styles.controlButton} onPress={() => updatePanTilt(panTiltStep, 0)}>
-            <Text style={styles.controlButtonText}>→</Text>
-          </Pressable>
-        </View>
-        <Pressable style={styles.controlButton} onPress={() => updatePanTilt(0, panTiltStep)}>
-          <Text style={styles.controlButtonText}>↓</Text>
-        </Pressable>
-      </View>
+          <View style={styles.stepRow}>
+            <Text style={styles.controlValue}>Step</Text>
+            {[5, 10, 20].map(step => (
+              <Pressable
+                key={step}
+                style={step === panTiltStep ? styles.stepButtonActive : styles.stepButton}
+                onPress={() => setPanTiltStep(step)}
+              >
+                <Text style={step === panTiltStep ? styles.stepButtonActiveText : styles.stepButtonText}>
+                  {step}°
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <View style={styles.controlPad}>
+            <Pressable style={styles.controlButton} onPress={() => updatePanTilt(0, -panTiltStep)}>
+              <Text style={styles.controlButtonText}>↑</Text>
+            </Pressable>
+            <View style={styles.controlRow}>
+              <Pressable style={styles.controlButton} onPress={() => updatePanTilt(panTiltStep, 0)}>
+                <Text style={styles.controlButtonText}>←</Text>
+              </Pressable>
+              <Pressable style={styles.controlButtonAccent} onPress={centerPanTilt}>
+                <Text style={styles.controlButtonAccentText}>Center</Text>
+              </Pressable>
+              <Pressable style={styles.controlButton} onPress={() => updatePanTilt(-panTiltStep, 0)}>
+                <Text style={styles.controlButtonText}>→</Text>
+              </Pressable>
+            </View>
+            <Pressable style={styles.controlButton} onPress={() => updatePanTilt(0, panTiltStep)}>
+              <Text style={styles.controlButtonText}>↓</Text>
+            </Pressable>
+          </View>
+        </>
+      )}
 
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Recent Events</Text>
@@ -214,21 +375,9 @@ export default function App() {
           <Text style={styles.link}>Refresh</Text>
         </Pressable>
       </View>
-
-      <FlatList
-        data={events}
-        keyExtractor={item => item.filename}
-        renderItem={renderEvent}
-        style={styles.eventsList}
-        contentContainerStyle={styles.eventsContent}
-      />
-
-      {selectedMedia && (
-        <View style={styles.mediaContainer}>
-          <Text style={styles.sectionTitle}>Preview: {selectedMedia}</Text>
-          <WebView source={{ uri: `${baseUrl}/media/${selectedMedia}` }} />
-        </View>
-      )}
+      <Pressable style={styles.eventNav} onPress={() => setGalleryMode('recents')}>
+        <Text style={styles.eventNavText}>Open Recent Events ({events.length})</Text>
+      </Pressable>
 
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Cloud Photos</Text>
@@ -236,33 +385,40 @@ export default function App() {
           <Text style={styles.link}>Refresh</Text>
         </Pressable>
       </View>
-
-      <FlatList
-        data={azureBlobs}
-        keyExtractor={item => item.name}
-        renderItem={renderAzure}
-        style={styles.eventsList}
-        contentContainerStyle={styles.eventsContent}
-      />
-
-      {selectedAzure && (
-        <View style={styles.mediaContainer}>
-          <Text style={styles.sectionTitle}>Cloud Preview: {selectedAzure}</Text>
-          <WebView source={{ uri: `${baseUrl}/azure/media/${selectedAzure}` }} />
-        </View>
-      )}
+      <Pressable style={styles.eventNav} onPress={() => setGalleryMode('cloud')}>
+        <Text style={styles.eventNavText}>Open Cloud Photos ({azureBlobs.length})</Text>
+      </Pressable>
 
       <Pressable style={styles.button} onPress={takePhoto}>
         <Text style={styles.buttonText}>Take Photo</Text>
       </Pressable>
 
+      {notifications.length > 0 && (
+        <View style={styles.notificationsContainer}>
+          <Text style={styles.sectionTitle}>Notifications</Text>
+          {notifications.slice(0, 5).map(item => (
+            <Text key={`${item.timestamp}-${item.message}`} style={styles.notificationText}>
+              {new Date(item.timestamp).toLocaleString()} · {item.message}
+            </Text>
+          ))}
+        </View>
+      )}
+
       <Text style={styles.status}>{status}</Text>
+      </ScrollView>
     </SafeAreaView>
   )
 }
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+    backgroundColor: '#0b0b0b',
+  },
+  scrollContent: {
+    padding: 16,
+  },
+  previewScreen: {
     flex: 1,
     backgroundColor: '#0b0b0b',
     padding: 16,
@@ -303,7 +459,8 @@ const styles = StyleSheet.create({
     borderColor: '#2b2b2b',
   },
   streamContainer: {
-    flex: 1,
+    width: '100%',
+    aspectRatio: 4 / 3,
     borderRadius: 12,
     overflow: 'hidden',
     marginBottom: 12,
@@ -330,6 +487,9 @@ const styles = StyleSheet.create({
     maxHeight: 180,
     marginBottom: 12,
   },
+  eventsListFull: {
+    flex: 1,
+  },
   eventsContent: {
     gap: 8,
   },
@@ -339,6 +499,103 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#2b2b2b',
+  },
+  eventRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  eventThumb: {
+    width: 56,
+    height: 42,
+    borderRadius: 8,
+    backgroundColor: '#1b1b1b',
+    borderWidth: 1,
+    borderColor: '#2b2b2b',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  eventThumbImage: {
+    width: '100%',
+    height: '100%',
+  },
+  eventThumbLabel: {
+    color: '#d1b06b',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  eventMeta: {
+    flex: 1,
+  },
+  eventTitle: {
+    color: '#f5f0e6',
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  eventChevron: {
+    color: '#bfae8a',
+    fontSize: 22,
+    marginLeft: 8,
+  },
+  eventPillRow: {
+    marginTop: 6,
+  },
+  eventPill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+    backgroundColor: '#2a2216',
+    borderWidth: 1,
+    borderColor: '#3b2d1a',
+  },
+  eventPillText: {
+    color: '#d1b06b',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  filterRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  filterChip: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#2b2b2b',
+    backgroundColor: '#141414',
+  },
+  filterChipActive: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#d1b06b',
+    backgroundColor: '#d1b06b',
+  },
+  filterChipText: {
+    color: '#f5f0e6',
+    fontSize: 12,
+  },
+  filterChipActiveText: {
+    color: '#1b1b1b',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  eventNav: {
+    backgroundColor: '#141414',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#2b2b2b',
+    marginBottom: 12,
+  },
+  eventNavText: {
+    color: '#f5f0e6',
+    fontSize: 13,
   },
   eventText: {
     color: '#f5f0e6',
@@ -356,6 +613,38 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#2b2b2b',
+  },
+  previewContainer: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#2b2b2b',
+    backgroundColor: '#000',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  previewImage: {
+    width: '100%',
+    height: '100%',
+  },
+  notificationsContainer: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#2b2b2b',
+    backgroundColor: '#121212',
+  },
+  notificationText: {
+    color: '#bfae8a',
+    fontSize: 12,
+    marginBottom: 6,
+  },
+  emptyText: {
+    color: '#bfae8a',
+    textAlign: 'center',
+    marginTop: 24,
   },
   button: {
     backgroundColor: '#d1b06b',

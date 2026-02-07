@@ -54,6 +54,7 @@ MOTION_MIN_AREA = 500
 MOTION_COOLDOWN_SEC = 3
 CLIP_SECONDS = 3
 CLIP_FPS = 8
+MOTION_SAVE_CLIPS = os.getenv("MOTION_SAVE_CLIPS", "0") == "1"
 
 SERVO_ENABLED = os.getenv("SERVO_ENABLED", "0") == "1"
 SERVO_PAN_CHANNEL = int(os.getenv("SERVO_PAN_CHANNEL", "0"))
@@ -69,6 +70,8 @@ servo_error: Optional[str] = None
 servo_state = {"pan": None, "tilt": None}
 rtc_device = None
 rtc_error: Optional[str] = None
+motion_notifications = []
+MOTION_NOTIFICATIONS_MAX = 50
 
 
 class PanTiltRequest(BaseModel):
@@ -147,6 +150,7 @@ def _save_motion_snapshot(frame: np.ndarray):
     ts = int(now)
     output_path = MEDIA_DIR / f"motion_{ts}.jpg"
     cv2.imwrite(str(output_path), frame)
+    _add_notification("Motion detected - snapshot saved", "motion")
     _upload_blob(output_path)
 
 
@@ -174,6 +178,18 @@ def _save_motion_clip():
         _upload_blob(output_path)
     finally:
         recording_clip = False
+
+
+def _add_notification(message: str, kind: str = "info"):
+    motion_notifications.append(
+        {
+            "message": message,
+            "kind": kind,
+            "timestamp": datetime.now().isoformat(),
+        }
+    )
+    if len(motion_notifications) > MOTION_NOTIFICATIONS_MAX:
+        del motion_notifications[:-MOTION_NOTIFICATIONS_MAX]
 
 
 def _upload_blob(path: Path):
@@ -436,6 +452,11 @@ async def status():
     }
 
 
+@app.get("/notifications")
+async def notifications():
+    return JSONResponse(list(reversed(motion_notifications)))
+
+
 def _motion_loop():
     global background_frame
     while True:
@@ -464,7 +485,8 @@ def _motion_loop():
             if cv2.contourArea(c) < MOTION_MIN_AREA:
                 continue
             _save_motion_snapshot(frame)
-            threading.Thread(target=_save_motion_clip, daemon=True).start()
+            if MOTION_SAVE_CLIPS:
+                threading.Thread(target=_save_motion_clip, daemon=True).start()
             break
 
         background_frame = gray

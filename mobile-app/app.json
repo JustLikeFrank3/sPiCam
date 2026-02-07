@@ -23,7 +23,8 @@
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
         }
-      }
+      },
+      "bundleIdentifier": "com.justlikefrank3.spicam"
     }
   }
 }

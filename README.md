@@ -66,10 +66,12 @@ When connected, use base URL: `http://192.168.4.1:8000`
 - `POST /arm` enable motion detection
 - `POST /disarm` disable motion detection
 - `GET /status` motion status
+- `GET /notifications` motion notifications
 - `GET /media/{filename}` serve photos and motion clips
 
 ## Motion Clips
-When motion is detected, a short MJPG clip is saved as `motion_<timestamp>.avi`.
+Motion clips are optional. Enable them with `MOTION_SAVE_CLIPS=1` in `pi-server/.env`.
+When enabled, a short MJPG clip is saved as `motion_<timestamp>.avi`.
 Use `/events` to list clips and `/media/{filename}` to download.
 
 ## Security Mode (next)
