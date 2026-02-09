@@ -136,7 +136,7 @@ function AppContent() {
     }
   }
 
-  const startRecording = async (durationSeconds: number) => {
+  const startRecording = useCallback(async (durationSeconds: number) => {
     try {
       setIsRecording(true)
       const res = await fetch(`${baseUrl}/record/start`, {
@@ -157,7 +157,7 @@ function AppContent() {
       setIsRecording(false)
       Alert.alert('Recording Failed', error instanceof Error ? error.message : 'Unknown error')
     }
-  }
+  }, [baseUrl, fetchEvents])
 
   const registerForPushNotifications = async () => {
     if (!Device.isDevice) {
@@ -303,7 +303,7 @@ function AppContent() {
         Notifications.removeNotificationSubscription(responseListener.current)
       }
     }
-  }, [fetchEvents, fetchAzure, fetchPanTiltStatus, fetchNotifications, baseUrl])
+  }, [fetchEvents, fetchAzure, fetchPanTiltStatus, fetchNotifications, baseUrl, startRecording])
 
   const takePhoto = async () => {
     try {

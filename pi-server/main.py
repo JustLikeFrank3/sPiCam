@@ -568,6 +568,18 @@ async def _send_push_notification(title: str, body: str, data: dict = None):
     except Exception as e:
         print(f"Push notification error: {e}")
 
+def _send_push_notification_sync(title: str, body: str, data: dict = None):
+    """Synchronous wrapper for sending push notifications from threads"""
+    import asyncio
+    try:
+        # Create a new event loop for this thread
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(_send_push_notification(title, body, data))
+        loop.close()
+    except Exception as e:
+        print(f"Push notification sync error: {e}")
+
 
 def _motion_loop():
     global background_frame
@@ -601,15 +613,11 @@ def _motion_loop():
                 threading.Thread(target=_save_motion_clip, daemon=True).start()
             
             # Send push notification on motion detection
-            import asyncio
-            try:
-                asyncio.create_task(_send_push_notification(
-                    "Motion Detected",
-                    "sPiCam detected motion. Tap to start recording.",
-                    {"type": "motion_detected"}
-                ))
-            except:
-                pass
+            threading.Thread(target=_send_push_notification_sync, args=(
+                "Motion Detected",
+                "sPiCam detected motion. Tap to start recording.",
+                {"type": "motion_detected"}
+            ), daemon=True).start()
             
             break
 
