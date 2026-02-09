@@ -1,18 +1,19 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import { SafeAreaView, StyleSheet, Text, View, Pressable, TextInput, FlatList, Platform, Image, ScrollView, Alert } from 'react-native'
+import { StyleSheet, Text, View, Pressable, TextInput, FlatList, Platform, Image, ScrollView, Alert } from 'react-native'
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import Constants from 'expo-constants'
 import { WebView } from 'react-native-webview'
 import * as MediaLibrary from 'expo-media-library'
-import * as FileSystem from 'expo-file-system'
+import * as FileSystem from 'expo-file-system/legacy'
 import * as Sharing from 'expo-sharing'
 
-export default function App() {
+function AppContent() {
   const logo = require('./assets/spicam_icon_1024.png')
   const defaultBaseUrl = Constants.isDevice
-    ? 'http://100.86.177.103:8000'
+    ? 'http://192.168.68.71:8000'
     : Platform.OS === 'android'
       ? 'http://10.0.2.2:8000'
-      : 'http://100.86.177.103:8000'
+      : 'http://192.168.68.71:8000'
   const [baseUrl, setBaseUrl] = useState(defaultBaseUrl)
   const [status, setStatus] = useState('')
   const [events, setEvents] = useState<Array<{ filename: string; path: string; timestamp: number }>>([])
@@ -401,7 +402,10 @@ export default function App() {
       </View>
 
       <View style={styles.streamContainer}>
-        <WebView source={{ uri: `${baseUrl}/stream` }} />
+        <WebView 
+          source={{ uri: `${baseUrl}/stream` }} 
+          style={{ flex: 1 }}
+        />
       </View>
 
       <View style={styles.sectionHeader}>
@@ -496,6 +500,14 @@ export default function App() {
       <Text style={styles.status}>{status}</Text>
       </ScrollView>
     </SafeAreaView>
+  )
+}
+
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <AppContent />
+    </SafeAreaProvider>
   )
 }
 

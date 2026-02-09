@@ -15,11 +15,14 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/spicam_icon_1024.png",
         "backgroundColor": "#0f172a"
-      }
+      },
+      "package": "com.justlikefrank3.spicam"
     },
     "ios": {
       "infoPlist": {
         "NSLocalNetworkUsageDescription": "sPiCam needs local network access to connect to the camera.",
+        "NSPhotoLibraryUsageDescription": "sPiCam needs access to save captured videos and photos to your photo library.",
+        "NSPhotoLibraryAddUsageDescription": "sPiCam needs access to save captured videos and photos to your photo library.",
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
         }

@@ -1,7 +1,6 @@
 fastapi
 uvicorn[standard]
 pillow
-opencv-python-headless
 azure-storage-blob
 adafruit-circuitpython-servokit
 adafruit-circuitpython-ds3231
