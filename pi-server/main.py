@@ -72,11 +72,19 @@ rtc_device = None
 rtc_error: Optional[str] = None
 motion_notifications = []
 MOTION_NOTIFICATIONS_MAX = 50
+push_tokens = set()
+recording_state = {"is_recording": False, "duration": 0, "start_time": None}
 
 
 class PanTiltRequest(BaseModel):
     pan: Optional[float] = None
     tilt: Optional[float] = None
+
+class RecordRequest(BaseModel):
+    duration: int = 30
+
+class PushTokenRequest(BaseModel):
+    token: str
 
 
 def _placeholder_frame() -> bytes:
@@ -456,6 +464,110 @@ async def status():
 async def notifications():
     return JSONResponse(list(reversed(motion_notifications)))
 
+@app.post("/notifications/register")
+async def register_push_token(req: PushTokenRequest):
+    """Register a device's Expo push token for motion notifications"""
+    push_tokens.add(req.token)
+    return {"status": "registered", "token": req.token}
+
+@app.post("/record/start")
+async def start_recording(req: RecordRequest):
+    """Start manual video recording for specified duration"""
+    global recording_state
+    
+    if recording_state["is_recording"]:
+        return {"error": "Recording already in progress"}
+    
+    if not PICAMERA_AVAILABLE:
+        return {"error": "Camera not available"}
+    
+    duration = max(5, min(120, req.duration))  # Clamp between 5-120 seconds
+    recording_state = {
+        "is_recording": True,
+        "duration": duration,
+        "start_time": time.time()
+    }
+    
+    # Start recording in background thread
+    threading.Thread(target=_record_video, args=(duration,), daemon=True).start()
+    
+    return {
+        "status": "recording",
+        "duration": duration,
+        "message": f"Recording for {duration} seconds"
+    }
+
+def _record_video(duration: int):
+    """Record video for specified duration"""
+    global recording_state
+    
+    try:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        video_path = MEDIA_DIR / f"recording_{timestamp}.h264"
+        
+        if picam:
+            # Configure for video recording
+            config = picam.create_video_configuration()
+            picam.configure(config)
+            output = str(video_path)
+            
+            picam.start_recording(output)
+            time.sleep(duration)
+            picam.stop_recording()
+            
+            # Convert to mp4 if possible
+            try:
+                mp4_path = video_path.with_suffix('.mp4')
+                subprocess.run([
+                    'ffmpeg', '-i', str(video_path),
+                    '-c:v', 'copy', str(mp4_path)
+                ], check=True, capture_output=True)
+                video_path.unlink()  # Remove h264 file
+                final_path = mp4_path
+            except:
+                final_path = video_path
+            
+            # Add to notifications
+            motion_notifications.insert(0, {
+                "message": f"Manual recording saved: {final_path.name}",
+                "kind": "recording",
+                "timestamp": datetime.now().isoformat()
+            })
+            if len(motion_notifications) > MOTION_NOTIFICATIONS_MAX:
+                motion_notifications.pop()
+    
+    except Exception as e:
+        print(f"Recording error: {e}")
+    finally:
+        recording_state = {"is_recording": False, "duration": 0, "start_time": None}
+
+async def _send_push_notification(title: str, body: str, data: dict = None):
+    """Send push notification to all registered devices"""
+    import httpx
+    
+    if not push_tokens:
+        return
+    
+    messages = []
+    for token in push_tokens:
+        messages.append({
+            "to": token,
+            "sound": "default",
+            "title": title,
+            "body": body,
+            "data": data or {}
+        })
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            await client.post(
+                'https://exp.host/--/api/v2/push/send',
+                json=messages,
+                headers={'Content-Type': 'application/json'}
+            )
+    except Exception as e:
+        print(f"Push notification error: {e}")
+
 
 def _motion_loop():
     global background_frame
@@ -487,6 +599,18 @@ def _motion_loop():
             _save_motion_snapshot(frame)
             if MOTION_SAVE_CLIPS:
                 threading.Thread(target=_save_motion_clip, daemon=True).start()
+            
+            # Send push notification on motion detection
+            import asyncio
+            try:
+                asyncio.create_task(_send_push_notification(
+                    "Motion Detected",
+                    "sPiCam detected motion. Tap to start recording.",
+                    {"type": "motion_detected"}
+                ))
+            except:
+                pass
+            
             break
 
         background_frame = gray

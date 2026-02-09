@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState, useRef } from 'react'
 import { StyleSheet, Text, View, Pressable, TextInput, FlatList, Platform, Image, ScrollView, Alert } from 'react-native'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import Constants from 'expo-constants'
@@ -6,6 +6,8 @@ import { WebView } from 'react-native-webview'
 import * as MediaLibrary from 'expo-media-library'
 import * as FileSystem from 'expo-file-system/legacy'
 import * as Sharing from 'expo-sharing'
+import * as Notifications from 'expo-notifications'
+import * as Device from 'expo-device'
 
 function AppContent() {
   const logo = require('./assets/spicam_icon_1024.png')
@@ -30,6 +32,11 @@ function AppContent() {
   const [servoEnabled, setServoEnabled] = useState(false)
   const [servoError, setServoError] = useState<string | null>(null)
   const [panTiltCollapsed, setPanTiltCollapsed] = useState(false)
+  const [isRecording, setIsRecording] = useState(false)
+  const [recordDuration, setRecordDuration] = useState(30)
+  const [expoPushToken, setExpoPushToken] = useState<string | null>(null)
+  const notificationListener = useRef<any>()
+  const responseListener = useRef<any>()
 
   const saveToPhotos = async (filename: string) => {
     try {
@@ -77,6 +84,115 @@ function AppContent() {
       await Sharing.shareAsync(downloadResult.uri)
     } catch (error) {
       Alert.alert('Share Failed', error instanceof Error ? error.message : 'Unknown error')
+    }
+  }
+
+  const saveAzureMedia = async (blobName: string) => {
+    try {
+      const { status } = await MediaLibrary.requestPermissionsAsync()
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please grant photo library access to save media.')
+        return
+      }
+
+      const fileUri = `${FileSystem.documentDirectory!}${blobName}`
+      const downloadResult = await FileSystem.downloadAsync(
+        `${baseUrl}/azure/media/${blobName}`,
+        fileUri
+      )
+
+      if (downloadResult.status !== 200) {
+        throw new Error('Download failed')
+      }
+
+      const asset = await MediaLibrary.createAssetAsync(downloadResult.uri)
+      Alert.alert('Success', `Saved to Photos: ${blobName}`)
+    } catch (error) {
+      Alert.alert('Save Failed', error instanceof Error ? error.message : 'Unknown error')
+    }
+  }
+
+  const shareAzureMedia = async (blobName: string) => {
+    try {
+      const fileUri = `${FileSystem.cacheDirectory!}${blobName}`
+      const downloadResult = await FileSystem.downloadAsync(
+        `${baseUrl}/azure/media/${blobName}`,
+        fileUri
+      )
+
+      if (downloadResult.status !== 200) {
+        throw new Error('Download failed')
+      }
+
+      const canShare = await Sharing.isAvailableAsync()
+      if (!canShare) {
+        Alert.alert('Sharing Not Available', 'Sharing is not available on this device')
+        return
+      }
+
+      await Sharing.shareAsync(downloadResult.uri)
+    } catch (error) {
+      Alert.alert('Share Failed', error instanceof Error ? error.message : 'Unknown error')
+    }
+  }
+
+  const startRecording = async (durationSeconds: number) => {
+    try {
+      setIsRecording(true)
+      const res = await fetch(`${baseUrl}/record/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ duration: durationSeconds })
+      })
+      const data = await res.json()
+      if (data.status === 'recording') {
+        setStatus(`Recording for ${durationSeconds}s...`)
+        setTimeout(() => {
+          setIsRecording(false)
+          setStatus('Recording complete')
+          fetchEvents()
+        }, durationSeconds * 1000 + 1000)
+      }
+    } catch (error) {
+      setIsRecording(false)
+      Alert.alert('Recording Failed', error instanceof Error ? error.message : 'Unknown error')
+    }
+  }
+
+  const registerForPushNotifications = async () => {
+    if (!Device.isDevice) {
+      Alert.alert('Push notifications only work on physical devices')
+      return
+    }
+
+    const { status: existingStatus } = await Notifications.getPermissionsAsync()
+    let finalStatus = existingStatus
+    
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync()
+      finalStatus = status
+    }
+    
+    if (finalStatus !== 'granted') {
+      Alert.alert('Notification Permission', 'Push notification permissions are required for motion alerts')
+      return
+    }
+
+    const tokenData = await Notifications.getExpoPushTokenAsync({
+      projectId: Constants.expoConfig?.extra?.eas?.projectId
+    })
+    const token = tokenData.data
+    setExpoPushToken(token)
+
+    // Register token with Pi server
+    try {
+      await fetch(`${baseUrl}/notifications/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token })
+      })
+    } catch (error) {
+      console.log('Failed to register push token with server:', error)
     }
   }
 
@@ -137,6 +253,56 @@ function AppContent() {
     fetchAzure()
     fetchPanTiltStatus()
     fetchNotifications()
+
+    // Configure notification handlers
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+      }),
+    })
+
+    // Listen for notifications when app is in foreground
+    notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
+      const data = notification.request.content.data
+      if (data?.type === 'motion_detected') {
+        Alert.alert(
+          'Motion Detected',
+          'Motion detected by sPiCam. Start recording?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Record 30s', onPress: () => startRecording(30) },
+            { text: 'Record 60s', onPress: () => startRecording(60) },
+          ]
+        )
+      }
+    })
+
+    // Listen for notification taps when app was in background
+    responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+      const data = response.notification.request.content.data
+      if (data?.type === 'motion_detected') {
+        Alert.alert(
+          'Motion Detected',
+          'Motion detected by sPiCam. Start recording?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Record 30s', onPress: () => startRecording(30) },
+            { text: 'Record 60s', onPress: () => startRecording(60) },
+          ]
+        )
+      }
+    })
+
+    return () => {
+      if (notificationListener.current) {
+        Notifications.removeNotificationSubscription(notificationListener.current)
+      }
+      if (responseListener.current) {
+        Notifications.removeNotificationSubscription(responseListener.current)
+      }
+    }
   }, [fetchEvents, fetchAzure, fetchPanTiltStatus, fetchNotifications, baseUrl])
 
   const takePhoto = async () => {
@@ -302,10 +468,10 @@ function AppContent() {
           </View>
           <View style={styles.mediaActions}>
             <Pressable style={styles.actionButton} onPress={() => saveToPhotos(selectedMedia)}>
-              <Text style={styles.actionButtonText}>💾 Save to Photos</Text>
+              <Text style={styles.actionButtonText}>Save to Photos</Text>
             </Pressable>
-            <Pressable style={styles.actionButton} onPress={() => shareMedia(selectedMedia)}>
-              <Text style={styles.actionButtonText}>📤 Share</Text>
+            <Pressable style={[styles.actionButton, styles.actionButtonSecondary]} onPress={() => shareMedia(selectedMedia)}>
+              <Text style={styles.actionButtonSecondaryText}>Share</Text>
             </Pressable>
           </View>
         </View>
@@ -330,6 +496,14 @@ function AppContent() {
               style={styles.previewImage}
               resizeMode="contain"
             />
+          </View>
+          <View style={styles.mediaActions}>
+            <Pressable style={styles.actionButton} onPress={() => saveAzureMedia(selectedAzure)}>
+              <Text style={styles.actionButtonText}>Save to Photos</Text>
+            </Pressable>
+            <Pressable style={[styles.actionButton, styles.actionButtonSecondary]} onPress={() => shareAzureMedia(selectedAzure)}>
+              <Text style={styles.actionButtonSecondaryText}>Share</Text>
+            </Pressable>
           </View>
         </View>
       </SafeAreaView>
@@ -485,6 +659,44 @@ function AppContent() {
       <Pressable style={styles.button} onPress={takePhoto}>
         <Text style={styles.buttonText}>Take Photo</Text>
       </Pressable>
+
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Video Recording</Text>
+        {expoPushToken ? (
+          <Text style={styles.linkDisabled}>Notifications ✓</Text>
+        ) : (
+          <Pressable onPress={registerForPushNotifications}>
+            <Text style={styles.link}>Enable Alerts</Text>
+          </Pressable>
+        )}
+      </View>
+      
+      <View style={styles.recordingControls}>
+        <View style={styles.durationRow}>
+          <Text style={styles.controlValue}>Duration:</Text>
+          {[10, 30, 60].map(duration => (
+            <Pressable
+              key={duration}
+              style={duration === recordDuration ? styles.stepButtonActive : styles.stepButton}
+              onPress={() => setRecordDuration(duration)}
+              disabled={isRecording}
+            >
+              <Text style={duration === recordDuration ? styles.stepButtonActiveText : styles.stepButtonText}>
+                {duration}s
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+        <Pressable 
+          style={[styles.button, isRecording && styles.buttonDisabled]} 
+          onPress={() => startRecording(recordDuration)}
+          disabled={isRecording}
+        >
+          <Text style={styles.buttonText}>
+            {isRecording ? 'Recording...' : 'Start Recording'}
+          </Text>
+        </Pressable>
+      </View>
 
       {notifications.length > 0 && (
         <View style={styles.notificationsContainer}>
@@ -859,12 +1071,51 @@ const styles = StyleSheet.create({
     backgroundColor: '#d1b06b',
     paddingVertical: 14,
     paddingHorizontal: 20,
-    borderRadius: 8,
+    borderRadius: 10,
     alignItems: 'center',
+    shadowColor: '#d1b06b',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
   },
   actionButtonText: {
-    color: '#1b1b1b',
-    fontSize: 16,
+    color: '#0d0d0d',
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  actionButtonSecondary: {
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    borderColor: '#d1b06b',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  actionButtonSecondaryText: {
+    color: '#d1b06b',
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  recordingControls: {
+    gap: 12,
+    marginBottom: 16,
+  },
+  durationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  buttonDisabled: {
+    backgroundColor: '#5a5040',
+    opacity: 0.6,
+  },
+  linkDisabled: {
+    fontSize: 14,
+    color: '#6a8a6a',
     fontWeight: '600',
   },
 })

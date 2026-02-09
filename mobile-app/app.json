@@ -23,6 +23,7 @@
         "NSLocalNetworkUsageDescription": "sPiCam needs local network access to connect to the camera.",
         "NSPhotoLibraryUsageDescription": "sPiCam needs access to save captured videos and photos to your photo library.",
         "NSPhotoLibraryAddUsageDescription": "sPiCam needs access to save captured videos and photos to your photo library.",
+        "NSUserNotificationsUsageDescription": "sPiCam needs notification access to alert you when motion is detected.",
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
         }

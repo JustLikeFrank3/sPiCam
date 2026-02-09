@@ -6,3 +6,5 @@ adafruit-circuitpython-servokit
 adafruit-circuitpython-ds3231
 adafruit-blinka
 smbus2
+httpx
+python-dotenv
