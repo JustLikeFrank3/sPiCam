@@ -1,7 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import { SafeAreaView, StyleSheet, Text, View, Pressable, TextInput, FlatList, Platform, Image, ScrollView } from 'react-native'
+import { SafeAreaView, StyleSheet, Text, View, Pressable, TextInput, FlatList, Platform, Image, ScrollView, Alert } from 'react-native'
 import Constants from 'expo-constants'
 import { WebView } from 'react-native-webview'
+import * as MediaLibrary from 'expo-media-library'
+import * as FileSystem from 'expo-file-system'
+import * as Sharing from 'expo-sharing'
 
 export default function App() {
   const logo = require('./assets/spicam_icon_1024.png')
@@ -26,6 +29,55 @@ export default function App() {
   const [servoEnabled, setServoEnabled] = useState(false)
   const [servoError, setServoError] = useState<string | null>(null)
   const [panTiltCollapsed, setPanTiltCollapsed] = useState(false)
+
+  const saveToPhotos = async (filename: string) => {
+    try {
+      const { status } = await MediaLibrary.requestPermissionsAsync()
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please grant photo library access to save media.')
+        return
+      }
+
+      const fileUri = `${FileSystem.documentDirectory!}${filename}`
+      const downloadResult = await FileSystem.downloadAsync(
+        `${baseUrl}/media/${filename}`,
+        fileUri
+      )
+
+      if (downloadResult.status !== 200) {
+        throw new Error('Download failed')
+      }
+
+      const asset = await MediaLibrary.createAssetAsync(downloadResult.uri)
+      Alert.alert('Success', `Saved to Photos: ${filename}`)
+    } catch (error) {
+      Alert.alert('Save Failed', error instanceof Error ? error.message : 'Unknown error')
+    }
+  }
+
+  const shareMedia = async (filename: string) => {
+    try {
+      const fileUri = `${FileSystem.cacheDirectory!}${filename}`
+      const downloadResult = await FileSystem.downloadAsync(
+        `${baseUrl}/media/${filename}`,
+        fileUri
+      )
+
+      if (downloadResult.status !== 200) {
+        throw new Error('Download failed')
+      }
+
+      const canShare = await Sharing.isAvailableAsync()
+      if (!canShare) {
+        Alert.alert('Sharing Not Available', 'Sharing is not available on this device')
+        return
+      }
+
+      await Sharing.shareAsync(downloadResult.uri)
+    } catch (error) {
+      Alert.alert('Share Failed', error instanceof Error ? error.message : 'Unknown error')
+    }
+  }
 
   const fetchEvents = useCallback(async () => {
     try {
@@ -101,7 +153,7 @@ export default function App() {
 
   const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
 
-  const isVideoFile = (name: string) => name.toLowerCase().endsWith('.avi')
+  const isVideoFile = (name: string) => /(\\.avi|\\.mp4)$/i.test(name)
   const isPhotoFile = (name: string) => /(\.jpe?g|\.png)$/i.test(name)
 
   const updatePanTilt = async (deltaPan: number, deltaTilt: number) => {
@@ -201,6 +253,26 @@ export default function App() {
   }
 
   if (selectedMedia) {
+    const isVideo = isVideoFile(selectedMedia)
+    const videoHtml = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+          <style>
+            body { margin: 0; padding: 0; background: #000; display: flex; align-items: center; justify-content: center; height: 100vh; }
+            video { max-width: 100%; max-height: 100%; }
+          </style>
+        </head>
+        <body>
+          <video controls autoplay style="width: 100%;">
+            <source src="${baseUrl}/media/${selectedMedia}" type="video/x-msvideo">
+            Your browser does not support video playback.
+          </video>
+        </body>
+      </html>
+    `
+
     return (
       <SafeAreaView style={[styles.container, { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000 }]}>
         <View style={styles.previewScreen}>
@@ -208,15 +280,32 @@ export default function App() {
             <Pressable onPress={() => setSelectedMedia(null)}>
               <Text style={styles.link}>Back</Text>
             </Pressable>
-            <Text style={styles.sectionTitle}>Preview</Text>
+            <Text style={styles.sectionTitle}>{isVideo ? 'Video' : 'Preview'}</Text>
             <View style={{ width: 48 }} />
           </View>
           <View style={styles.previewContainer}>
-            <Image 
-              source={{ uri: `${baseUrl}/media/${selectedMedia}` }} 
-              style={styles.previewImage}
-              resizeMode="contain"
-            />
+            {isVideo ? (
+              <WebView
+                source={{ html: videoHtml }}
+                style={{ flex: 1, backgroundColor: '#000' }}
+                allowsInlineMediaPlayback
+                mediaPlaybackRequiresUserAction={false}
+              />
+            ) : (
+              <Image 
+                source={{ uri: `${baseUrl}/media/${selectedMedia}` }} 
+                style={styles.previewImage}
+                resizeMode="contain"
+              />
+            )}
+          </View>
+          <View style={styles.mediaActions}>
+            <Pressable style={styles.actionButton} onPress={() => saveToPhotos(selectedMedia)}>
+              <Text style={styles.actionButtonText}>💾 Save to Photos</Text>
+            </Pressable>
+            <Pressable style={styles.actionButton} onPress={() => shareMedia(selectedMedia)}>
+              <Text style={styles.actionButtonText}>📤 Share</Text>
+            </Pressable>
           </View>
         </View>
       </SafeAreaView>
@@ -743,5 +832,27 @@ const styles = StyleSheet.create({
     color: '#1b1b1b',
     fontSize: 12,
     fontWeight: '700',
+  },
+  mediaActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    padding: 16,
+    gap: 12,
+    backgroundColor: '#0d0d0d',
+    borderTopWidth: 1,
+    borderTopColor: '#2b2b2b',
+  },
+  actionButton: {
+    flex: 1,
+    backgroundColor: '#d1b06b',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  actionButtonText: {
+    color: '#1b1b1b',
+    fontSize: 16,
+    fontWeight: '600',
   },
 })
