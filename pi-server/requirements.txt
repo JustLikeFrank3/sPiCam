@@ -1,6 +1,8 @@
 fastapi
 uvicorn[standard]
 pillow
+numpy
+picamera2
 azure-storage-blob
 adafruit-circuitpython-servokit
 adafruit-circuitpython-ds3231

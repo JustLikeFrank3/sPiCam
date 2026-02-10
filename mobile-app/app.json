@@ -28,7 +28,18 @@
           "NSAllowsArbitraryLoads": true
         }
       },
-      "bundleIdentifier": "com.justlikefrank3.spicam"
-    }
+      "bundleIdentifier": "com.justlikefrank3.spicam",
+      "entitlements": {
+        "aps-environment": "development"
+      }
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "sounds": []
+        }
+      ]
+    ]
   }
 }

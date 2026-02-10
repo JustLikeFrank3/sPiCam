@@ -9,11 +9,12 @@ import os
 from dotenv import load_dotenv
 from datetime import datetime
 import subprocess
+import shutil
 from pydantic import BaseModel
 
 try:
     from picamera2 import Picamera2
-    from picamera2.encoders import MJPEGEncoder
+    from picamera2.encoders import MJPEGEncoder, H264Encoder
     from picamera2.outputs import FileOutput
     PICAMERA_AVAILABLE = True
 except Exception:
@@ -33,6 +34,8 @@ MEDIA_DIR.mkdir(exist_ok=True)
 picam = None
 motion_enabled = True
 last_motion_ts: Optional[float] = None
+last_notification_time: Optional[float] = None
+NOTIFICATION_COOLDOWN = 60  # seconds between notifications
 motion_lock = threading.Lock()
 background_frame: Optional[np.ndarray] = None
 motion_thread: Optional[threading.Thread] = None
@@ -100,8 +103,13 @@ def _placeholder_frame() -> bytes:
 def _get_frame_array() -> Optional[np.ndarray]:
     if PICAMERA_AVAILABLE:
         _init_camera()
-        frame = picam.capture_array()
-        return cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        if picam is not None:
+            try:
+                frame = picam.capture_array()
+                return cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            except Exception as e:
+                print(f"Frame capture error: {e}")
+                return None
     placeholder = _placeholder_frame()
     img = cv2.imdecode(np.frombuffer(placeholder, np.uint8), cv2.IMREAD_COLOR)
     return img
@@ -227,10 +235,20 @@ def _init_camera():
     if not PICAMERA_AVAILABLE:
         return
     if picam is None:
-        picam = Picamera2()
-        config = picam.create_video_configuration(main={"size": (640, 480)})
-        picam.configure(config)
-        picam.start()
+        try:
+            picam = Picamera2()
+            config = picam.create_video_configuration(main={"size": (640, 480)})
+            picam.configure(config)
+            picam.start()
+        except Exception as e:
+            print(f"Camera initialization error: {e}")
+            if picam:
+                try:
+                    picam.close()
+                except:
+                    pass
+            picam = None
+            # Camera might be in use, will retry on next call
 
 
 @app.get("/health")
@@ -248,21 +266,129 @@ async def stream():
     boundary = "frame"
 
     def frame_generator():
+        global motion_enabled, picam
+
+        def _ensure_stream_camera() -> bool:
+            global picam
+            if picam is not None:
+                return True
+            try:
+                picam = Picamera2()
+                config = picam.create_video_configuration(main={"size": (640, 480)})
+                picam.configure(config)
+                picam.start()
+                return True
+            except Exception as e:
+                print(f"Stream: Camera initialization failed: {e}")
+                picam = None
+                return False
+
+        def _ensure_stream_camera_with_retry(attempts: int = 3, base_delay: float = 0.5) -> bool:
+            for attempt in range(attempts):
+                if _ensure_stream_camera():
+                    return True
+                time.sleep(base_delay * (attempt + 1))
+            return False
+        
+        # Check if recording is in progress
+        if recording_state["is_recording"]:
+            # Return placeholder frames during recording
+            while recording_state["is_recording"]:
+                frame = _placeholder_frame()
+                yield (
+                    b"--%b\r\nContent-Type: image/jpeg\r\n\r\n" % boundary.encode()
+                    + frame
+                    + b"\r\n"
+                )
+                time.sleep(0.5)
+        
         if PICAMERA_AVAILABLE:
-            _init_camera()
+            # Temporarily disable motion detection to free camera
+            original_motion = motion_enabled
+            motion_enabled = False
+            time.sleep(1.0)  # Give motion loop time to release camera
+            
+            # Stop and close existing camera completely
+            if picam:
+                try:
+                    picam.stop_recording()
+                except:
+                    pass
+                try:
+                    picam.stop()
+                except:
+                    pass
+                try:
+                    picam.close()
+                except:
+                    pass
+                picam = None
+            
+            time.sleep(0.5)  # Let camera hardware reset
+            
+            if not _ensure_stream_camera_with_retry():
+                motion_enabled = original_motion
+                # Return placeholder frames
+                for _ in range(100):
+                    frame = _placeholder_frame()
+                    yield (
+                        b"--%b\r\nContent-Type: image/jpeg\r\n\r\n" % boundary.encode()
+                        + frame
+                        + b"\r\n"
+                    )
+                    time.sleep(0.5)
+                return
+            
             encoder = MJPEGEncoder()
             output = io.BytesIO()
 
             class _StreamOutput(FileOutput):
-                def outputframe(self, frame):
+                def outputframe(self, frame, keyframe=True, timestamp=None, packet=None, audio=None):
                     output.seek(0)
                     output.write(frame)
                     output.truncate()
 
             stream_output = _StreamOutput()
+            if not _ensure_stream_camera_with_retry():
+                motion_enabled = original_motion
+                while True:
+                    frame = _placeholder_frame()
+                    yield (
+                        b"--%b\r\nContent-Type: image/jpeg\r\n\r\n" % boundary.encode()
+                        + frame
+                        + b"\r\n"
+                    )
+                    time.sleep(0.5)
             picam.start_recording(encoder, stream_output)
             try:
                 while True:
+                    if picam is None and not _ensure_stream_camera_with_retry():
+                        frame = _placeholder_frame()
+                        yield (
+                            b"--%b\r\nContent-Type: image/jpeg\r\n\r\n" % boundary.encode()
+                            + frame
+                            + b"\r\n"
+                        )
+                        time.sleep(0.5)
+                        continue
+                    # Pause streaming if recording starts
+                    if recording_state["is_recording"]:
+                        if picam:
+                            picam.stop_recording()
+                        # Return placeholder frames until recording completes
+                        while recording_state["is_recording"]:
+                            frame = _placeholder_frame()
+                            yield (
+                                b"--%b\r\nContent-Type: image/jpeg\r\n\r\n" % boundary.encode()
+                                + frame
+                                + b"\r\n"
+                            )
+                            time.sleep(0.5)
+                        # Restart streaming after recording
+                        if not _ensure_stream_camera_with_retry():
+                            continue
+                        picam.start_recording(encoder, stream_output)
+                    
                     frame = output.getvalue()
                     if frame:
                         yield (
@@ -272,7 +398,21 @@ async def stream():
                         )
                     time.sleep(0.03)
             finally:
-                picam.stop_recording()
+                try:
+                    picam.stop_recording()
+                except:
+                    pass
+                try:
+                    picam.stop()
+                except:
+                    pass
+                try:
+                    picam.close()
+                except:
+                    pass
+                picam = None
+                # Restore motion detection
+                motion_enabled = original_motion
         else:
             while True:
                 frame = _placeholder_frame()
@@ -296,7 +436,11 @@ async def photo():
 
     if PICAMERA_AVAILABLE:
         _init_camera()
-        picam.capture_file(str(output_path))
+        if picam is not None:
+            picam.capture_file(str(output_path))
+        else:
+            print("Photo endpoint: Camera not available, using placeholder")
+            output_path.write_bytes(_placeholder_frame())
     else:
         output_path.write_bytes(_placeholder_frame())
     _upload_blob(output_path)
@@ -350,13 +494,37 @@ async def events():
     photos = sorted(MEDIA_DIR.glob("photo_*.jpg"), reverse=True)
     motion = sorted(MEDIA_DIR.glob("motion_*.jpg"), reverse=True)
     clips = sorted(MEDIA_DIR.glob("motion_*.avi"), reverse=True)
+    recordings = sorted(
+        list(MEDIA_DIR.glob("recording_*.mp4"))
+        + list(MEDIA_DIR.glob("recording_*.h264")),
+        reverse=True,
+    )
     payload = [
         {
             "filename": p.name,
             "path": str(p),
             "timestamp": p.stat().st_mtime,
         }
-        for p in (clips + motion + photos)
+        for p in (recordings + clips + motion + photos)
+    ]
+    payload.sort(key=lambda item: item["timestamp"], reverse=True)
+    return JSONResponse(payload)
+
+
+@app.get("/recordings")
+async def recordings():
+    items = sorted(
+        list(MEDIA_DIR.glob("recording_*.mp4"))
+        + list(MEDIA_DIR.glob("recording_*.h264")),
+        reverse=True,
+    )
+    payload = [
+        {
+            "filename": p.name,
+            "path": str(p),
+            "timestamp": p.stat().st_mtime,
+        }
+        for p in items
     ]
     return JSONResponse(payload)
 
@@ -499,47 +667,122 @@ async def start_recording(req: RecordRequest):
 
 def _record_video(duration: int):
     """Record video for specified duration"""
-    global recording_state
+    global recording_state, motion_enabled, picam
+    
+    # Store original motion state and temporarily disable it
+    original_motion_state = motion_enabled
+    motion_enabled = False
+    time.sleep(1.0)  # Give motion loop and streaming time to stop
     
     try:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         video_path = MEDIA_DIR / f"recording_{timestamp}.h264"
+        mp4_path = video_path.with_suffix('.mp4')
         
+        if not PICAMERA_AVAILABLE:
+            print("Camera not available for recording")
+            return
+        
+        # Stop all camera operations
         if picam:
-            # Configure for video recording
-            config = picam.create_video_configuration()
-            picam.configure(config)
-            output = str(video_path)
-            
-            picam.start_recording(output)
-            time.sleep(duration)
-            picam.stop_recording()
-            
-            # Convert to mp4 if possible
             try:
-                mp4_path = video_path.with_suffix('.mp4')
-                subprocess.run([
-                    'ffmpeg', '-i', str(video_path),
-                    '-c:v', 'copy', str(mp4_path)
-                ], check=True, capture_output=True)
+                picam.stop_recording()
+            except:
+                pass
+            try:
+                picam.stop()
+            except:
+                pass
+            try:
+                picam.close()
+            except:
+                pass
+        
+        time.sleep(0.5)  # Let hardware reset
+        
+        # Reinitialize camera for video recording
+        picam = Picamera2()
+        video_config = picam.create_video_configuration(
+            main={"size": (1920, 1080), "format": "RGB888"}
+        )
+        picam.configure(video_config)
+        picam.start()
+        
+        # Record video
+        encoder = H264Encoder()
+        picam.start_recording(encoder, str(video_path))
+        print(f"Recording started: {video_path}")
+        time.sleep(duration)
+        picam.stop_recording()
+        picam.stop()
+        try:
+            picam.close()
+        except:
+            pass
+        print(f"Recording stopped: {video_path}")
+        
+        # Convert to mp4 when ffmpeg is available; otherwise keep h264.
+        if shutil.which("ffmpeg"):
+            try:
+                subprocess.run(
+                    ["ffmpeg", "-i", str(video_path), "-c:v", "copy", str(mp4_path)],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                )
+                print(f"FFmpeg conversion successful: {mp4_path}")
                 video_path.unlink()  # Remove h264 file
                 final_path = mp4_path
-            except:
+            except Exception as convert_err:
+                print(f"FFmpeg conversion error: {convert_err}")
                 final_path = video_path
+        else:
+            print("FFmpeg not found; keeping raw h264 recording")
+            final_path = video_path
+        
+        # Verify file exists
+        if final_path.exists():
+            print(f"Video saved successfully: {final_path}, size: {final_path.stat().st_size} bytes")
             
-            # Add to notifications
-            motion_notifications.insert(0, {
-                "message": f"Manual recording saved: {final_path.name}",
-                "kind": "recording",
-                "timestamp": datetime.now().isoformat()
-            })
-            if len(motion_notifications) > MOTION_NOTIFICATIONS_MAX:
-                motion_notifications.pop()
+            # Upload to Azure if configured
+            if container_client:
+                try:
+                    blob_name = f"recordings/{final_path.name}"
+                    content_type = "video/mp4" if final_path.suffix == ".mp4" else "video/h264"
+                    with open(final_path, "rb") as data:
+                        container_client.upload_blob(
+                            name=blob_name,
+                            data=data,
+                            overwrite=True,
+                            content_settings=ContentSettings(content_type=content_type)
+                        )
+                    print(f"Uploaded to Azure: {blob_name}")
+                except Exception as upload_err:
+                    print(f"Azure upload error: {upload_err}")
+        else:
+            print(f"ERROR: Video file not found: {final_path}")
+        
+        # Add to notifications
+        motion_notifications.insert(0, {
+            "message": f"Manual recording saved: {final_path.name}",
+            "kind": "recording",
+            "timestamp": datetime.now().isoformat()
+        })
+        if len(motion_notifications) > MOTION_NOTIFICATIONS_MAX:
+            motion_notifications.pop()
+        
+        # Reinitialize camera for streaming
+        picam = None  # Force reinitialization
     
     except Exception as e:
         print(f"Recording error: {e}")
+        import traceback
+        traceback.print_exc()
     finally:
+        # Restore motion detection state
+        motion_enabled = original_motion_state
         recording_state = {"is_recording": False, "duration": 0, "start_time": None}
+        # Camera will be reinitialized by next stream/motion request
 
 async def _send_push_notification(title: str, body: str, data: dict = None):
     """Send push notification to all registered devices"""
@@ -608,16 +851,28 @@ def _motion_loop():
         for c in contours:
             if cv2.contourArea(c) < MOTION_MIN_AREA:
                 continue
-            _save_motion_snapshot(frame)
-            if MOTION_SAVE_CLIPS:
-                threading.Thread(target=_save_motion_clip, daemon=True).start()
             
-            # Send push notification on motion detection
-            threading.Thread(target=_send_push_notification_sync, args=(
-                "Motion Detected",
-                "sPiCam detected motion. Tap to start recording.",
-                {"type": "motion_detected"}
-            ), daemon=True).start()
+            # Check cooldown before sending notification
+            global last_notification_time
+            current_time = time.time()
+            if last_notification_time is None or (current_time - last_notification_time) >= NOTIFICATION_COOLDOWN:
+                # Send push notification on motion detection
+                threading.Thread(target=_send_push_notification_sync, args=(
+                    "Motion Detected",
+                    "sPiCam detected motion. Tap to start recording.",
+                    {"type": "motion_detected"}
+                ), daemon=True).start()
+                
+                last_notification_time = current_time
+                
+                # Add notification to UI
+                motion_notifications.insert(0, {
+                    "message": "Motion detected - notification sent",
+                    "kind": "motion",
+                    "timestamp": datetime.now().isoformat()
+                })
+                if len(motion_notifications) > MOTION_NOTIFICATIONS_MAX:
+                    motion_notifications.pop()
             
             break
 
@@ -633,4 +888,15 @@ def _start_motion_thread():
     motion_thread.start()
 
 
-_start_motion_thread()
+# Delay motion thread start to let server initialize
+def delayed_motion_start():
+    print("Delaying motion thread start for 5 seconds...")
+    time.sleep(5)
+    print("Starting motion detection thread")
+    _start_motion_thread()
+
+threading.Thread(target=delayed_motion_start, daemon=True).start()
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)

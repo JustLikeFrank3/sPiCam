@@ -38,8 +38,21 @@ function AppContent() {
   const notificationListener = useRef<any>()
   const responseListener = useRef<any>()
 
+  const isPhotoFile = (name: string) => /(\.jpe?g|\.png)$/i.test(name)
+  const isVideoFile = (name: string) => /(\.avi|\.mp4)$/i.test(name)
+  const isRawVideoFile = (name: string) => /\.h264$/i.test(name)
+  const canSaveToPhotos = (name: string) => /(\.jpe?g|\.png|\.mp4|\.mov)$/i.test(name)
+  const getVideoMimeType = (name: string) => (name.toLowerCase().endsWith('.mp4') ? 'video/mp4' : 'video/x-msvideo')
+
   const saveToPhotos = async (filename: string) => {
     try {
+      if (!canSaveToPhotos(filename)) {
+        const message = isRawVideoFile(filename)
+          ? 'This recording is raw .h264. Install ffmpeg on the Pi to generate .mp4 files before saving.'
+          : 'This file type cannot be saved to Photos. Use .jpg/.png for photos or .mp4 for video.'
+        Alert.alert('Save Failed', message)
+        return
+      }
       const { status } = await MediaLibrary.requestPermissionsAsync()
       if (status !== 'granted') {
         Alert.alert('Permission Required', 'Please grant photo library access to save media.')
@@ -89,6 +102,13 @@ function AppContent() {
 
   const saveAzureMedia = async (blobName: string) => {
     try {
+      if (!canSaveToPhotos(blobName)) {
+        const message = isRawVideoFile(blobName)
+          ? 'This recording is raw .h264. Install ffmpeg on the Pi to generate .mp4 files before saving.'
+          : 'This file type cannot be saved to Photos. Use .jpg/.png for photos or .mp4 for video.'
+        Alert.alert('Save Failed', message)
+        return
+      }
       const { status } = await MediaLibrary.requestPermissionsAsync()
       if (status !== 'granted') {
         Alert.alert('Permission Required', 'Please grant photo library access to save media.')
@@ -137,14 +157,18 @@ function AppContent() {
   }
 
   const startRecording = useCallback(async (durationSeconds: number) => {
+    console.log('Starting recording for', durationSeconds, 'seconds')
     try {
       setIsRecording(true)
+      console.log('Sending request to:', `${baseUrl}/record/start`)
       const res = await fetch(`${baseUrl}/record/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ duration: durationSeconds })
       })
+      console.log('Response status:', res.status)
       const data = await res.json()
+      console.log('Response data:', data)
       if (data.status === 'recording') {
         setStatus(`Recording for ${durationSeconds}s...`)
         setTimeout(() => {
@@ -152,47 +176,67 @@ function AppContent() {
           setStatus('Recording complete')
           fetchEvents()
         }, durationSeconds * 1000 + 1000)
+      } else if (data.error) {
+        setIsRecording(false)
+        setStatus(`Error: ${data.error}`)
+        Alert.alert('Recording Error', data.error)
       }
     } catch (error) {
+      console.error('Recording error:', error)
       setIsRecording(false)
       Alert.alert('Recording Failed', error instanceof Error ? error.message : 'Unknown error')
     }
   }, [baseUrl, fetchEvents])
 
   const registerForPushNotifications = async () => {
-    if (!Device.isDevice) {
-      Alert.alert('Push notifications only work on physical devices')
-      return
-    }
-
-    const { status: existingStatus } = await Notifications.getPermissionsAsync()
-    let finalStatus = existingStatus
-    
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync()
-      finalStatus = status
-    }
-    
-    if (finalStatus !== 'granted') {
-      Alert.alert('Notification Permission', 'Push notification permissions are required for motion alerts')
-      return
-    }
-
-    const tokenData = await Notifications.getExpoPushTokenAsync({
-      projectId: Constants.expoConfig?.extra?.eas?.projectId
-    })
-    const token = tokenData.data
-    setExpoPushToken(token)
-
-    // Register token with Pi server
     try {
-      await fetch(`${baseUrl}/notifications/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token })
-      })
+      if (!Device.isDevice) {
+        Alert.alert('Push notifications only work on physical devices')
+        return
+      }
+
+      const { status: existingStatus } = await Notifications.getPermissionsAsync()
+      let finalStatus = existingStatus
+      
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync()
+        finalStatus = status
+      }
+      
+      if (finalStatus !== 'granted') {
+        Alert.alert('Notification Permission', 'Push notification permissions are required for motion alerts')
+        return
+      }
+
+      console.log('Getting Expo push token...')
+      const tokenData = await Notifications.getExpoPushTokenAsync()
+      const token = tokenData.data
+      console.log('Got push token:', token)
+      setExpoPushToken(token)
+
+      // Register token with Pi server
+      try {
+        console.log('Registering token with server...')
+        const response = await fetch(`${baseUrl}/notifications/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token })
+        })
+        
+        if (!response.ok) {
+          throw new Error(`Server returned ${response.status}`)
+        }
+        
+        const data = await response.json()
+        console.log('Server registration response:', data)
+        Alert.alert('Success', 'Push notifications enabled! You\'ll receive alerts when motion is detected.')
+      } catch (error) {
+        console.log('Failed to register push token with server:', error)
+        Alert.alert('Warning', 'Notifications enabled locally, but server registration failed. Motion alerts may not work.')
+      }
     } catch (error) {
-      console.log('Failed to register push token with server:', error)
+      console.error('Push notification registration error:', error)
+      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to enable notifications')
     }
   }
 
@@ -320,8 +364,6 @@ function AppContent() {
 
   const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
 
-  const isVideoFile = (name: string) => /(\\.avi|\\.mp4)$/i.test(name)
-  const isPhotoFile = (name: string) => /(\.jpe?g|\.png)$/i.test(name)
 
   const updatePanTilt = async (deltaPan: number, deltaTilt: number) => {
     const nextPan = clamp(pan + deltaPan, 0, 180)
@@ -361,6 +403,7 @@ function AppContent() {
 
   const renderEvent = ({ item }: { item: { filename: string; path: string; timestamp: number } }) => {
     const isVideo = isVideoFile(item.filename)
+    const isRawVideo = isRawVideoFile(item.filename)
     return (
       <Pressable style={styles.eventItem} onPress={() => setSelectedMedia(item.filename)}>
         <View style={styles.eventRow}>
@@ -368,7 +411,7 @@ function AppContent() {
             {isPhotoFile(item.filename) ? (
               <Image source={{ uri: `${baseUrl}/media/${item.filename}` }} style={styles.eventThumbImage} />
             ) : (
-              <Text style={styles.eventThumbLabel}>{isVideo ? 'VIDEO' : 'FILE'}</Text>
+              <Text style={styles.eventThumbLabel}>{isRawVideo ? 'RAW' : isVideo ? 'VIDEO' : 'FILE'}</Text>
             )}
           </View>
           <View style={styles.eventMeta}>
@@ -378,7 +421,7 @@ function AppContent() {
             <Text style={styles.eventTime}>{new Date(item.timestamp * 1000).toLocaleString()}</Text>
             <View style={styles.eventPillRow}>
               <View style={styles.eventPill}>
-                <Text style={styles.eventPillText}>{isVideo ? 'Video' : 'Photo'}</Text>
+                <Text style={styles.eventPillText}>{isRawVideo ? 'Raw' : isVideo ? 'Video' : 'Photo'}</Text>
               </View>
             </View>
           </View>
@@ -390,6 +433,7 @@ function AppContent() {
 
   const renderAzure = ({ item }: { item: { name: string; last_modified?: string | null } }) => {
     const isVideo = isVideoFile(item.name)
+    const isRawVideo = isRawVideoFile(item.name)
     return (
       <Pressable style={styles.eventItem} onPress={() => setSelectedAzure(item.name)}>
         <View style={styles.eventRow}>
@@ -397,7 +441,7 @@ function AppContent() {
             {isPhotoFile(item.name) ? (
               <Image source={{ uri: `${baseUrl}/azure/media/${item.name}` }} style={styles.eventThumbImage} />
             ) : (
-              <Text style={styles.eventThumbLabel}>{isVideo ? 'VIDEO' : 'FILE'}</Text>
+              <Text style={styles.eventThumbLabel}>{isRawVideo ? 'RAW' : isVideo ? 'VIDEO' : 'FILE'}</Text>
             )}
           </View>
           <View style={styles.eventMeta}>
@@ -409,7 +453,7 @@ function AppContent() {
             ) : null}
             <View style={styles.eventPillRow}>
               <View style={styles.eventPill}>
-                <Text style={styles.eventPillText}>{isVideo ? 'Video' : 'Photo'}</Text>
+                <Text style={styles.eventPillText}>{isRawVideo ? 'Raw' : isVideo ? 'Video' : 'Photo'}</Text>
               </View>
             </View>
           </View>
@@ -421,6 +465,7 @@ function AppContent() {
 
   if (selectedMedia) {
     const isVideo = isVideoFile(selectedMedia)
+    const isRawVideo = isRawVideoFile(selectedMedia)
     const videoHtml = `
       <!DOCTYPE html>
       <html>
@@ -433,7 +478,7 @@ function AppContent() {
         </head>
         <body>
           <video controls autoplay style="width: 100%;">
-            <source src="${baseUrl}/media/${selectedMedia}" type="video/x-msvideo">
+            <source src="${baseUrl}/media/${selectedMedia}" type="${getVideoMimeType(selectedMedia)}">
             Your browser does not support video playback.
           </video>
         </body>
@@ -451,7 +496,9 @@ function AppContent() {
             <View style={{ width: 48 }} />
           </View>
           <View style={styles.previewContainer}>
-            {isVideo ? (
+            {isRawVideo ? (
+              <Text style={styles.eventThumbLabel}>Raw .h264 not playable</Text>
+            ) : isVideo ? (
               <WebView
                 source={{ html: videoHtml }}
                 style={{ flex: 1, backgroundColor: '#000' }}
