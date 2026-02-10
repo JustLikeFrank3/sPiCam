@@ -43,6 +43,8 @@ function AppContent() {
   const isRawVideoFile = (name: string) => /\.h264$/i.test(name)
   const canSaveToPhotos = (name: string) => /(\.jpe?g|\.png|\.mp4|\.mov)$/i.test(name)
   const getVideoMimeType = (name: string) => (name.toLowerCase().endsWith('.mp4') ? 'video/mp4' : 'video/x-msvideo')
+  const getLocalMediaUrl = (name: string) => `${baseUrl}/media/${encodeURIComponent(name)}`
+  const getAzureMediaUrl = (name: string) => `${baseUrl}/azure/media/${encodeURIComponent(name)}`
 
   const saveToPhotos = async (filename: string) => {
     try {
@@ -61,7 +63,7 @@ function AppContent() {
 
       const fileUri = `${FileSystem.documentDirectory!}${filename}`
       const downloadResult = await FileSystem.downloadAsync(
-        `${baseUrl}/media/${filename}`,
+        getLocalMediaUrl(filename),
         fileUri
       )
 
@@ -80,7 +82,7 @@ function AppContent() {
     try {
       const fileUri = `${FileSystem.cacheDirectory!}${filename}`
       const downloadResult = await FileSystem.downloadAsync(
-        `${baseUrl}/media/${filename}`,
+        getLocalMediaUrl(filename),
         fileUri
       )
 
@@ -117,7 +119,7 @@ function AppContent() {
 
       const fileUri = `${FileSystem.documentDirectory!}${blobName}`
       const downloadResult = await FileSystem.downloadAsync(
-        `${baseUrl}/azure/media/${blobName}`,
+        getAzureMediaUrl(blobName),
         fileUri
       )
 
@@ -136,7 +138,7 @@ function AppContent() {
     try {
       const fileUri = `${FileSystem.cacheDirectory!}${blobName}`
       const downloadResult = await FileSystem.downloadAsync(
-        `${baseUrl}/azure/media/${blobName}`,
+        getAzureMediaUrl(blobName),
         fileUri
       )
 
@@ -409,7 +411,7 @@ function AppContent() {
         <View style={styles.eventRow}>
           <View style={styles.eventThumb}>
             {isPhotoFile(item.filename) ? (
-              <Image source={{ uri: `${baseUrl}/media/${item.filename}` }} style={styles.eventThumbImage} />
+              <Image source={{ uri: getLocalMediaUrl(item.filename) }} style={styles.eventThumbImage} />
             ) : (
               <Text style={styles.eventThumbLabel}>{isRawVideo ? 'RAW' : isVideo ? 'VIDEO' : 'FILE'}</Text>
             )}
@@ -439,7 +441,7 @@ function AppContent() {
         <View style={styles.eventRow}>
           <View style={styles.eventThumb}>
             {isPhotoFile(item.name) ? (
-              <Image source={{ uri: `${baseUrl}/azure/media/${item.name}` }} style={styles.eventThumbImage} />
+              <Image source={{ uri: getAzureMediaUrl(item.name) }} style={styles.eventThumbImage} />
             ) : (
               <Text style={styles.eventThumbLabel}>{isRawVideo ? 'RAW' : isVideo ? 'VIDEO' : 'FILE'}</Text>
             )}
@@ -478,7 +480,7 @@ function AppContent() {
         </head>
         <body>
           <video controls autoplay style="width: 100%;">
-            <source src="${baseUrl}/media/${selectedMedia}" type="${getVideoMimeType(selectedMedia)}">
+            <source src="${getLocalMediaUrl(selectedMedia)}" type="${getVideoMimeType(selectedMedia)}">
             Your browser does not support video playback.
           </video>
         </body>
@@ -507,7 +509,7 @@ function AppContent() {
               />
             ) : (
               <Image 
-                source={{ uri: `${baseUrl}/media/${selectedMedia}` }} 
+                source={{ uri: getLocalMediaUrl(selectedMedia) }} 
                 style={styles.previewImage}
                 resizeMode="contain"
               />
@@ -527,6 +529,27 @@ function AppContent() {
   }
 
   if (selectedAzure) {
+    const isVideo = isVideoFile(selectedAzure)
+    const isRawVideo = isRawVideoFile(selectedAzure)
+    const cloudVideoHtml = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+          <style>
+            body { margin: 0; padding: 0; background: #000; display: flex; align-items: center; justify-content: center; height: 100vh; }
+            video { max-width: 100%; max-height: 100%; }
+          </style>
+        </head>
+        <body>
+          <video controls autoplay style="width: 100%;">
+            <source src="${getAzureMediaUrl(selectedAzure)}" type="${getVideoMimeType(selectedAzure)}">
+            Your browser does not support video playback.
+          </video>
+        </body>
+      </html>
+    `
+
     return (
       <SafeAreaView style={[styles.container, { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000 }]}>
         <View style={styles.previewScreen}>
@@ -538,11 +561,22 @@ function AppContent() {
             <View style={{ width: 48 }} />
           </View>
           <View style={styles.previewContainer}>
-            <Image 
-              source={{ uri: `${baseUrl}/azure/media/${selectedAzure}` }} 
-              style={styles.previewImage}
-              resizeMode="contain"
-            />
+            {isRawVideo ? (
+              <Text style={styles.eventThumbLabel}>Raw .h264 not playable</Text>
+            ) : isVideo ? (
+              <WebView
+                source={{ html: cloudVideoHtml }}
+                style={{ flex: 1, backgroundColor: '#000' }}
+                allowsInlineMediaPlayback
+                mediaPlaybackRequiresUserAction={false}
+              />
+            ) : (
+              <Image 
+                source={{ uri: getAzureMediaUrl(selectedAzure) }} 
+                style={styles.previewImage}
+                resizeMode="contain"
+              />
+            )}
           </View>
           <View style={styles.mediaActions}>
             <Pressable style={styles.actionButton} onPress={() => saveAzureMedia(selectedAzure)}>
