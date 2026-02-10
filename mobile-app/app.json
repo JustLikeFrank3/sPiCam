@@ -40,6 +40,12 @@
           "sounds": []
         }
       ]
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "79201519-b2ee-49fb-b21a-74534e9d9531"
+      }
+    },
+    "owner": "justlikefrank3"
   }
 }

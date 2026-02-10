@@ -5,6 +5,7 @@ import io
 import time
 import threading
 from typing import Optional
+import json
 import os
 from dotenv import load_dotenv
 from datetime import datetime
@@ -40,6 +41,20 @@ motion_lock = threading.Lock()
 background_frame: Optional[np.ndarray] = None
 motion_thread: Optional[threading.Thread] = None
 recording_clip = False
+stream_active = False
+stream_stop_requested = False
+last_stream_start_ts = 0.0
+motion_enabled_since: Optional[float] = None
+latest_stream_frame: Optional[np.ndarray] = None
+latest_stream_frame_ts = 0.0
+latest_stream_lock = threading.Lock()
+motion_metrics = {
+    "last_delta_mean": None,
+    "last_delta_max": None,
+    "last_contour_area": None,
+    "last_contour_count": None,
+    "last_frame_ts": None,
+}
 
 AZURE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
 AZURE_CONTAINER = os.getenv("AZURE_STORAGE_CONTAINER", "images")
@@ -52,12 +67,16 @@ if AZURE_CONNECTION_STRING:
 else:
     print("[PiCam] Azure upload disabled: AZURE_STORAGE_CONNECTION_STRING not set")
 
-MOTION_THRESHOLD = 18
-MOTION_MIN_AREA = 500
+MOTION_THRESHOLD = int(os.getenv("MOTION_THRESHOLD", "6"))
+MOTION_MIN_AREA = int(os.getenv("MOTION_MIN_AREA", "20"))
 MOTION_COOLDOWN_SEC = 3
+MOTION_WARMUP_SEC = float(os.getenv("MOTION_WARMUP_SEC", "3"))
 CLIP_SECONDS = 3
 CLIP_FPS = 8
 MOTION_SAVE_CLIPS = os.getenv("MOTION_SAVE_CLIPS", "0") == "1"
+STREAM_STALE_SEC = float(os.getenv("STREAM_STALE_SEC", "30"))
+STREAM_DEBOUNCE_SEC = float(os.getenv("STREAM_DEBOUNCE_SEC", "5"))
+STREAM_WARMUP_SEC = float(os.getenv("STREAM_WARMUP_SEC", "10"))
 
 SERVO_ENABLED = os.getenv("SERVO_ENABLED", "0") == "1"
 SERVO_PAN_CHANNEL = int(os.getenv("SERVO_PAN_CHANNEL", "0"))
@@ -77,6 +96,7 @@ motion_notifications = []
 MOTION_NOTIFICATIONS_MAX = 50
 push_tokens = set()
 recording_state = {"is_recording": False, "duration": 0, "start_time": None}
+PUSH_TOKENS_FILE = BASE_DIR / "push_tokens.json"
 
 
 class PanTiltRequest(BaseModel):
@@ -100,7 +120,25 @@ def _placeholder_frame() -> bytes:
     return buf.getvalue()
 
 
+def _update_latest_stream_frame(frame_bytes: bytes) -> None:
+    global latest_stream_frame, latest_stream_frame_ts
+    now = time.time()
+    if now - latest_stream_frame_ts < 0.2:
+        return
+    img = cv2.imdecode(np.frombuffer(frame_bytes, np.uint8), cv2.IMREAD_COLOR)
+    if img is None:
+        return
+    with latest_stream_lock:
+        latest_stream_frame = img
+        latest_stream_frame_ts = now
+
+
 def _get_frame_array() -> Optional[np.ndarray]:
+    if stream_active:
+        with latest_stream_lock:
+            if latest_stream_frame is not None:
+                if time.time() - latest_stream_frame_ts <= 1.0:
+                    return latest_stream_frame.copy()
     if PICAMERA_AVAILABLE:
         _init_camera()
         if picam is not None:
@@ -230,6 +268,51 @@ def _upload_blob(path: Path):
         print(f"[PiCam] Azure upload failed for {path.name}: {exc}")
 
 
+def _load_push_tokens() -> None:
+    global push_tokens
+    if not PUSH_TOKENS_FILE.exists():
+        return
+    try:
+        data = json.loads(PUSH_TOKENS_FILE.read_text())
+        if isinstance(data, list):
+            push_tokens = set(str(token) for token in data)
+    except Exception as exc:
+        print(f"[PiCam] Failed to load push tokens: {exc}")
+
+
+def _save_push_tokens() -> None:
+    try:
+        PUSH_TOKENS_FILE.write_text(json.dumps(sorted(push_tokens)))
+    except Exception as exc:
+        print(f"[PiCam] Failed to save push tokens: {exc}")
+
+
+def _list_recordings() -> list[Path]:
+    mp4_files = sorted(MEDIA_DIR.glob("recording_*.mp4"), reverse=True)
+    mp4_stems = {path.stem for path in mp4_files}
+    h264_files = sorted(MEDIA_DIR.glob("recording_*.h264"), reverse=True)
+    h264_filtered = [path for path in h264_files if path.stem not in mp4_stems]
+    return mp4_files + h264_filtered
+
+
+def _close_camera():
+    global picam
+    if picam:
+        try:
+            picam.stop_recording()
+        except:
+            pass
+        try:
+            picam.stop()
+        except:
+            pass
+        try:
+            picam.close()
+        except:
+            pass
+    picam = None
+
+
 def _init_camera():
     global picam
     if not PICAMERA_AVAILABLE:
@@ -266,7 +349,18 @@ async def stream():
     boundary = "frame"
 
     def frame_generator():
-        global motion_enabled, picam
+        global picam, stream_active, stream_stop_requested, last_stream_start_ts
+        stream_active = False
+        stream_stop_requested = False
+
+        if time.time() - last_stream_start_ts < STREAM_DEBOUNCE_SEC:
+            frame = _placeholder_frame()
+            yield (
+                b"--%b\r\nContent-Type: image/jpeg\r\n\r\n" % boundary.encode()
+                + frame
+                + b"\r\n"
+            )
+            return
 
         def _ensure_stream_camera() -> bool:
             global picam
@@ -303,31 +397,12 @@ async def stream():
                 time.sleep(0.5)
         
         if PICAMERA_AVAILABLE:
-            # Temporarily disable motion detection to free camera
-            original_motion = motion_enabled
-            motion_enabled = False
-            time.sleep(1.0)  # Give motion loop time to release camera
-            
             # Stop and close existing camera completely
-            if picam:
-                try:
-                    picam.stop_recording()
-                except:
-                    pass
-                try:
-                    picam.stop()
-                except:
-                    pass
-                try:
-                    picam.close()
-                except:
-                    pass
-                picam = None
+            _close_camera()
             
             time.sleep(0.5)  # Let camera hardware reset
             
             if not _ensure_stream_camera_with_retry():
-                motion_enabled = original_motion
                 # Return placeholder frames
                 for _ in range(100):
                     frame = _placeholder_frame()
@@ -350,7 +425,6 @@ async def stream():
 
             stream_output = _StreamOutput()
             if not _ensure_stream_camera_with_retry():
-                motion_enabled = original_motion
                 while True:
                     frame = _placeholder_frame()
                     yield (
@@ -360,8 +434,12 @@ async def stream():
                     )
                     time.sleep(0.5)
             picam.start_recording(encoder, stream_output)
+            stream_active = True
+            last_stream_start_ts = time.time()
             try:
                 while True:
+                    if stream_stop_requested:
+                        break
                     if picam is None and not _ensure_stream_camera_with_retry():
                         frame = _placeholder_frame()
                         yield (
@@ -391,13 +469,20 @@ async def stream():
                     
                     frame = output.getvalue()
                     if frame:
+                        _update_latest_stream_frame(frame)
                         yield (
                             b"--%b\r\nContent-Type: image/jpeg\r\n\r\n" % boundary.encode()
                             + frame
                             + b"\r\n"
                         )
+                    if latest_stream_frame_ts and (time.time() - last_stream_start_ts) > STREAM_WARMUP_SEC:
+                        if (time.time() - latest_stream_frame_ts) > STREAM_STALE_SEC:
+                            print("Stream stale: closing camera to restore motion")
+                            break
                     time.sleep(0.03)
             finally:
+                stream_active = False
+                stream_stop_requested = False
                 try:
                     picam.stop_recording()
                 except:
@@ -411,8 +496,6 @@ async def stream():
                 except:
                     pass
                 picam = None
-                # Restore motion detection
-                motion_enabled = original_motion
         else:
             while True:
                 frame = _placeholder_frame()
@@ -427,6 +510,15 @@ async def stream():
         frame_generator(),
         media_type=f"multipart/x-mixed-replace; boundary={boundary}",
     )
+
+
+@app.post("/stream/stop")
+async def stop_stream():
+    global stream_stop_requested, stream_active
+    stream_stop_requested = True
+    stream_active = False
+    _close_camera()
+    return {"status": "stopped"}
 
 
 @app.post("/photo")
@@ -494,11 +586,7 @@ async def events():
     photos = sorted(MEDIA_DIR.glob("photo_*.jpg"), reverse=True)
     motion = sorted(MEDIA_DIR.glob("motion_*.jpg"), reverse=True)
     clips = sorted(MEDIA_DIR.glob("motion_*.avi"), reverse=True)
-    recordings = sorted(
-        list(MEDIA_DIR.glob("recording_*.mp4"))
-        + list(MEDIA_DIR.glob("recording_*.h264")),
-        reverse=True,
-    )
+    recordings = _list_recordings()
     payload = [
         {
             "filename": p.name,
@@ -513,11 +601,7 @@ async def events():
 
 @app.get("/recordings")
 async def recordings():
-    items = sorted(
-        list(MEDIA_DIR.glob("recording_*.mp4"))
-        + list(MEDIA_DIR.glob("recording_*.h264")),
-        reverse=True,
-    )
+    items = _list_recordings()
     payload = [
         {
             "filename": p.name,
@@ -608,15 +692,18 @@ async def get_azure_media(blob_name: str):
 
 @app.post("/arm")
 async def arm_motion():
-    global motion_enabled
+    global motion_enabled, background_frame, motion_enabled_since
     motion_enabled = True
+    background_frame = None
+    motion_enabled_since = time.time()
     return {"motion_enabled": motion_enabled}
 
 
 @app.post("/disarm")
 async def disarm_motion():
-    global motion_enabled
+    global motion_enabled, motion_enabled_since
     motion_enabled = False
+    motion_enabled_since = None
     return {"motion_enabled": motion_enabled}
 
 
@@ -628,6 +715,30 @@ async def status():
     }
 
 
+@app.get("/motion/debug")
+async def motion_debug():
+    return {
+        "motion_enabled": motion_enabled,
+        "last_motion": last_motion_ts,
+        "last_notification_time": last_notification_time,
+        "background_frame_set": background_frame is not None,
+        "stream_active": stream_active,
+        "latest_stream_frame_age_sec": round(time.time() - latest_stream_frame_ts, 2)
+        if latest_stream_frame_ts
+        else None,
+        "push_tokens": len(push_tokens),
+    }
+
+
+@app.get("/motion/metrics")
+async def motion_metrics_endpoint():
+    return {
+        **motion_metrics,
+        "motion_enabled": motion_enabled,
+        "background_frame_set": background_frame is not None,
+    }
+
+
 @app.get("/notifications")
 async def notifications():
     return JSONResponse(list(reversed(motion_notifications)))
@@ -636,7 +747,34 @@ async def notifications():
 async def register_push_token(req: PushTokenRequest):
     """Register a device's Expo push token for motion notifications"""
     push_tokens.add(req.token)
+    _save_push_tokens()
     return {"status": "registered", "token": req.token}
+
+
+@app.post("/notifications/unregister")
+async def unregister_push_token(req: PushTokenRequest):
+    """Unregister a device's Expo push token to disable motion notifications"""
+    push_tokens.discard(req.token)
+    _save_push_tokens()
+    return {"status": "unregistered", "token": req.token}
+
+
+@app.post("/motion/test")
+async def motion_test():
+    """Trigger a test motion notification to verify push delivery."""
+    global last_notification_time
+    last_notification_time = time.time()
+    threading.Thread(
+        target=_send_push_notification_sync,
+        args=(
+            "Motion Test",
+            "sPiCam test notification. This confirms push delivery.",
+            {"type": "motion_test"}
+        ),
+        daemon=True,
+    ).start()
+    _add_notification("Motion test - notification sent", "motion")
+    return {"status": "sent", "tokens": len(push_tokens)}
 
 @app.post("/record/start")
 async def start_recording(req: RecordRequest):
@@ -713,12 +851,15 @@ def _record_video(duration: int):
         picam.start_recording(encoder, str(video_path))
         print(f"Recording started: {video_path}")
         time.sleep(duration)
-        picam.stop_recording()
-        picam.stop()
-        try:
-            picam.close()
-        except:
-            pass
+        if picam:
+            picam.stop_recording()
+            picam.stop()
+            try:
+                picam.close()
+            except:
+                pass
+        else:
+            print("Recording stopped: camera unavailable")
         print(f"Recording stopped: {video_path}")
         
         # Convert to mp4 when ffmpeg is available; otherwise keep h264.
@@ -745,10 +886,10 @@ def _record_video(duration: int):
             print(f"Video saved successfully: {final_path}, size: {final_path.stat().st_size} bytes")
             
             # Upload to Azure if configured
-            if container_client:
+            if container_client and final_path.suffix == ".mp4":
                 try:
                     blob_name = f"recordings/{final_path.name}"
-                    content_type = "video/mp4" if final_path.suffix == ".mp4" else "video/h264"
+                    content_type = "video/mp4"
                     with open(final_path, "rb") as data:
                         container_client.upload_blob(
                             name=blob_name,
@@ -759,15 +900,22 @@ def _record_video(duration: int):
                     print(f"Uploaded to Azure: {blob_name}")
                 except Exception as upload_err:
                     print(f"Azure upload error: {upload_err}")
+            elif container_client:
+                print("Skipping Azure upload for non-mp4 recording")
         else:
             print(f"ERROR: Video file not found: {final_path}")
         
-        # Add to notifications
-        motion_notifications.insert(0, {
-            "message": f"Manual recording saved: {final_path.name}",
-            "kind": "recording",
-            "timestamp": datetime.now().isoformat()
-        })
+        if final_path.suffix == ".mp4":
+            motion_notifications.insert(0, {
+                "message": f"Recording ready: {final_path.name}",
+                "kind": "recording",
+                "timestamp": datetime.now().isoformat()
+            })
+            threading.Thread(target=_send_push_notification_sync, args=(
+                "Recording Ready",
+                f"Recording ready: {final_path.name}",
+                {"type": "recording_ready", "filename": final_path.name}
+            ), daemon=True).start()
         if len(motion_notifications) > MOTION_NOTIFICATIONS_MAX:
             motion_notifications.pop()
         
@@ -803,11 +951,18 @@ async def _send_push_notification(title: str, body: str, data: dict = None):
     
     try:
         async with httpx.AsyncClient() as client:
-            await client.post(
+            response = await client.post(
                 'https://exp.host/--/api/v2/push/send',
                 json=messages,
                 headers={'Content-Type': 'application/json'}
             )
+        try:
+            payload = response.json()
+        except Exception:
+            payload = response.text
+        print(
+            f"Push notification response: status={response.status_code} tokens={len(push_tokens)} payload={payload}"
+        )
     except Exception as e:
         print(f"Push notification error: {e}")
 
@@ -825,7 +980,7 @@ def _send_push_notification_sync(title: str, body: str, data: dict = None):
 
 
 def _motion_loop():
-    global background_frame
+    global background_frame, motion_enabled_since
     while True:
         if not motion_enabled:
             time.sleep(0.5)
@@ -838,15 +993,25 @@ def _motion_loop():
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         gray = cv2.GaussianBlur(gray, (21, 21), 0)
 
+        if motion_enabled_since and (time.time() - motion_enabled_since) < MOTION_WARMUP_SEC:
+            background_frame = gray
+            time.sleep(0.1)
+            continue
+
         if background_frame is None:
             background_frame = gray
             time.sleep(0.1)
             continue
 
         delta = cv2.absdiff(background_frame, gray)
+        motion_metrics["last_delta_mean"] = float(delta.mean())
+        motion_metrics["last_delta_max"] = float(delta.max())
         thresh = cv2.threshold(delta, MOTION_THRESHOLD, 255, cv2.THRESH_BINARY)[1]
         thresh = cv2.dilate(thresh, None, iterations=2)
         contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        motion_metrics["last_contour_count"] = len(contours)
+        motion_metrics["last_contour_area"] = max((cv2.contourArea(c) for c in contours), default=0.0)
+        motion_metrics["last_frame_ts"] = time.time()
 
         for c in contours:
             if cv2.contourArea(c) < MOTION_MIN_AREA:
@@ -895,6 +1060,7 @@ def delayed_motion_start():
     print("Starting motion detection thread")
     _start_motion_thread()
 
+_load_push_tokens()
 threading.Thread(target=delayed_motion_start, daemon=True).start()
 
 if __name__ == "__main__":

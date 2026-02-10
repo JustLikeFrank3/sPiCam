@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react'
-import { StyleSheet, Text, View, Pressable, TextInput, FlatList, Platform, Image, ScrollView, Alert } from 'react-native'
+import { StyleSheet, Text, View, Pressable, TextInput, FlatList, Platform, Image, ScrollView, Alert, AppState } from 'react-native'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import Constants from 'expo-constants'
 import { WebView } from 'react-native-webview'
@@ -10,6 +10,9 @@ import * as Notifications from 'expo-notifications'
 import * as Device from 'expo-device'
 
 function AppContent() {
+  const log = (...args: Array<unknown>) => {
+    console.log('[SPICAM]', ...args)
+  }
   const logo = require('./assets/spicam_icon_1024.png')
   const defaultBaseUrl = Constants.isDevice
     ? 'http://192.168.68.71:8000'
@@ -25,6 +28,7 @@ function AppContent() {
   const [galleryMode, setGalleryMode] = useState<'recents' | 'cloud' | null>(null)
   const [recentsFilter, setRecentsFilter] = useState<'all' | 'photos' | 'videos'>('all')
   const [notifications, setNotifications] = useState<Array<{ message: string; kind?: string; timestamp: string }>>([])
+  const [notificationsUpdatedAt, setNotificationsUpdatedAt] = useState<Date | null>(null)
   const [pan, setPan] = useState(90)
   const [tilt, setTilt] = useState(90)
   const [panTiltStep, setPanTiltStep] = useState(10)
@@ -35,8 +39,68 @@ function AppContent() {
   const [isRecording, setIsRecording] = useState(false)
   const [recordDuration, setRecordDuration] = useState(30)
   const [expoPushToken, setExpoPushToken] = useState<string | null>(null)
-  const notificationListener = useRef<any>()
-  const responseListener = useRef<any>()
+  const [isAppActive, setIsAppActive] = useState(true)
+  const [appState, setAppState] = useState<string>(AppState.currentState)
+  const [streamKey, setStreamKey] = useState(0)
+  const [streamError, setStreamError] = useState<string | null>(null)
+  const notificationListener = useRef<any>(null)
+  const responseListener = useRef<any>(null)
+  const hasAttemptedAutoRegister = useRef(false)
+
+  useEffect(() => {
+    log('AppContent mounted', {
+      platform: Platform.OS,
+      isDevice: Constants.isDevice,
+      baseUrl
+    })
+  }, [baseUrl])
+
+  const setMotionState = useCallback(async (enabled: boolean) => {
+    try {
+      const endpoint = enabled ? 'arm' : 'disarm'
+      log('Setting motion state', { enabled, endpoint })
+      await fetch(`${baseUrl}/${endpoint}`, { method: 'POST' })
+    } catch (error) {
+      log('Failed to set motion state', String(error))
+    }
+  }, [baseUrl])
+
+  const stopStream = useCallback(async () => {
+    try {
+      await fetch(`${baseUrl}/stream/stop`, { method: 'POST' })
+    } catch (error) {
+      log('Failed to stop stream', String(error))
+    }
+  }, [baseUrl])
+
+  useEffect(() => {
+    const handleAppState = (state: string) => {
+      log('AppState change', state)
+      setAppState(state)
+      const active = state === 'active'
+      setIsAppActive(active)
+      if (state === 'active') {
+        setMotionState(false)
+        setStreamKey(key => key + 1)
+        return
+      }
+      if (state === 'background') {
+        setMotionState(true)
+        void stopStream()
+      }
+    }
+    handleAppState(AppState.currentState)
+    const subscription = AppState.addEventListener('change', handleAppState)
+    return () => subscription.remove()
+  }, [setMotionState, stopStream])
+
+  const reloadStream = useCallback(() => {
+    setStreamError(null)
+    void (async () => {
+      await stopStream()
+      setTimeout(() => setStreamKey(key => key + 1), 300)
+    })()
+  }, [stopStream])
 
   const isPhotoFile = (name: string) => /(\.jpe?g|\.png)$/i.test(name)
   const isVideoFile = (name: string) => /(\.avi|\.mp4)$/i.test(name)
@@ -158,90 +222,6 @@ function AppContent() {
     }
   }
 
-  const startRecording = useCallback(async (durationSeconds: number) => {
-    console.log('Starting recording for', durationSeconds, 'seconds')
-    try {
-      setIsRecording(true)
-      console.log('Sending request to:', `${baseUrl}/record/start`)
-      const res = await fetch(`${baseUrl}/record/start`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ duration: durationSeconds })
-      })
-      console.log('Response status:', res.status)
-      const data = await res.json()
-      console.log('Response data:', data)
-      if (data.status === 'recording') {
-        setStatus(`Recording for ${durationSeconds}s...`)
-        setTimeout(() => {
-          setIsRecording(false)
-          setStatus('Recording complete')
-          fetchEvents()
-        }, durationSeconds * 1000 + 1000)
-      } else if (data.error) {
-        setIsRecording(false)
-        setStatus(`Error: ${data.error}`)
-        Alert.alert('Recording Error', data.error)
-      }
-    } catch (error) {
-      console.error('Recording error:', error)
-      setIsRecording(false)
-      Alert.alert('Recording Failed', error instanceof Error ? error.message : 'Unknown error')
-    }
-  }, [baseUrl, fetchEvents])
-
-  const registerForPushNotifications = async () => {
-    try {
-      if (!Device.isDevice) {
-        Alert.alert('Push notifications only work on physical devices')
-        return
-      }
-
-      const { status: existingStatus } = await Notifications.getPermissionsAsync()
-      let finalStatus = existingStatus
-      
-      if (existingStatus !== 'granted') {
-        const { status } = await Notifications.requestPermissionsAsync()
-        finalStatus = status
-      }
-      
-      if (finalStatus !== 'granted') {
-        Alert.alert('Notification Permission', 'Push notification permissions are required for motion alerts')
-        return
-      }
-
-      console.log('Getting Expo push token...')
-      const tokenData = await Notifications.getExpoPushTokenAsync()
-      const token = tokenData.data
-      console.log('Got push token:', token)
-      setExpoPushToken(token)
-
-      // Register token with Pi server
-      try {
-        console.log('Registering token with server...')
-        const response = await fetch(`${baseUrl}/notifications/register`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token })
-        })
-        
-        if (!response.ok) {
-          throw new Error(`Server returned ${response.status}`)
-        }
-        
-        const data = await response.json()
-        console.log('Server registration response:', data)
-        Alert.alert('Success', 'Push notifications enabled! You\'ll receive alerts when motion is detected.')
-      } catch (error) {
-        console.log('Failed to register push token with server:', error)
-        Alert.alert('Warning', 'Notifications enabled locally, but server registration failed. Motion alerts may not work.')
-      }
-    } catch (error) {
-      console.error('Push notification registration error:', error)
-      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to enable notifications')
-    }
-  }
-
   const fetchEvents = useCallback(async () => {
     try {
       const res = await fetch(`${baseUrl}/events`)
@@ -288,11 +268,159 @@ function AppContent() {
       const json = await res.json()
       if (Array.isArray(json)) {
         setNotifications(json)
+        setNotificationsUpdatedAt(new Date())
+        log('Notifications updated', { count: json.length })
       }
     } catch (error) {
-      // ignore notification errors
+      log('Failed to fetch notifications', String(error))
     }
   }, [baseUrl])
+
+  const startRecording = useCallback(async (durationSeconds: number) => {
+    log('Starting recording for', durationSeconds, 'seconds')
+    try {
+      setIsRecording(true)
+      log('Sending request to:', `${baseUrl}/record/start`)
+      const res = await fetch(`${baseUrl}/record/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ duration: durationSeconds })
+      })
+      log('Response status:', res.status)
+      const data = await res.json()
+      log('Response data:', data)
+      if (data.status === 'recording') {
+        setStatus(`Recording for ${durationSeconds}s...`)
+        setTimeout(() => {
+          setIsRecording(false)
+          setStatus('Recording complete')
+          fetchEvents()
+        }, durationSeconds * 1000 + 1000)
+      } else if (data.error) {
+        setIsRecording(false)
+        setStatus(`Error: ${data.error}`)
+        Alert.alert('Recording Error', data.error)
+      }
+    } catch (error) {
+      console.error('[SPICAM] Recording error', error)
+      setIsRecording(false)
+      Alert.alert('Recording Failed', error instanceof Error ? error.message : 'Unknown error')
+    }
+  }, [baseUrl, fetchEvents])
+
+  const registerForPushNotifications = async (options?: { silent?: boolean }) => {
+    const silent = options?.silent === true
+    try {
+      if (!Device.isDevice) {
+        if (!silent) {
+          Alert.alert('Push notifications only work on physical devices')
+        }
+        return
+      }
+
+      log('Checking notification permissions')
+      const { status: existingStatus } = await Notifications.getPermissionsAsync()
+      let finalStatus = existingStatus
+      
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync()
+        finalStatus = status
+      }
+      
+      if (finalStatus !== 'granted') {
+        log('Notification permission denied')
+        if (!silent) {
+          Alert.alert('Notification Permission', 'Push notification permissions are required for motion alerts')
+        }
+        return
+      }
+
+      log('Getting Expo push token')
+      const projectId = Constants.expoConfig?.extra?.eas?.projectId
+      if (!projectId) {
+        log('Missing projectId in app config')
+        if (!silent) {
+          Alert.alert('Notification Error', 'Missing projectId. Add expo.extra.eas.projectId in app.json.')
+        }
+        return
+      }
+      const tokenData = await Notifications.getExpoPushTokenAsync({ projectId })
+      const token = tokenData.data
+      log('Got push token', token)
+      setExpoPushToken(token)
+
+      // Register token with Pi server
+      try {
+        log('Registering token with server')
+        const response = await fetch(`${baseUrl}/notifications/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token })
+        })
+        
+        if (!response.ok) {
+          throw new Error(`Server returned ${response.status}`)
+        }
+        
+        const data = await response.json()
+        log('Server registration response', data)
+        if (!silent) {
+          Alert.alert('Success', 'Push notifications enabled! You\'ll receive alerts when motion is detected.')
+        }
+      } catch (error) {
+        console.error('[SPICAM] Failed to register push token with server', error)
+        if (!silent) {
+          Alert.alert('Warning', 'Notifications enabled locally, but server registration failed. Motion alerts may not work.')
+        }
+      }
+    } catch (error) {
+      console.error('[SPICAM] Push notification registration error', error)
+      if (!silent) {
+        Alert.alert('Error', error instanceof Error ? error.message : 'Failed to enable notifications')
+      }
+    }
+  }
+
+  const disablePushNotifications = async () => {
+    if (!expoPushToken) {
+      return
+    }
+    Alert.alert(
+      'Disable Alerts',
+      'This will stop motion notifications for this device. You can re-enable later.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Disable',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              try {
+                log('Unregistering token with server')
+                const response = await fetch(`${baseUrl}/notifications/unregister`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ token: expoPushToken })
+                })
+
+                if (!response.ok) {
+                  throw new Error(`Server returned ${response.status}`)
+                }
+
+                const data = await response.json()
+                log('Server unregister response', data)
+                setExpoPushToken(null)
+              } catch (error) {
+                console.error('[SPICAM] Failed to unregister push token', error)
+                Alert.alert('Disable Failed', 'Could not disable alerts. Try again.')
+              }
+            })()
+          }
+        }
+      ]
+    )
+  }
+
 
   useEffect(() => {
     fetchEvents()
@@ -300,53 +428,72 @@ function AppContent() {
     fetchPanTiltStatus()
     fetchNotifications()
 
+    if (!hasAttemptedAutoRegister.current) {
+      hasAttemptedAutoRegister.current = true
+      registerForPushNotifications({ silent: true })
+    }
+
     // Configure notification handlers
-    Notifications.setNotificationHandler({
-      handleNotification: async () => ({
-        shouldShowAlert: true,
-        shouldPlaySound: true,
-        shouldSetBadge: false,
-      }),
-    })
+    if (typeof Notifications.setNotificationHandler === 'function') {
+      Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldShowAlert: true,
+          shouldShowBanner: true,
+          shouldShowList: true,
+          shouldPlaySound: true,
+          shouldSetBadge: false,
+        }),
+      })
+    } else {
+      log('Notifications.setNotificationHandler unavailable')
+    }
 
     // Listen for notifications when app is in foreground
-    notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
-      const data = notification.request.content.data
-      if (data?.type === 'motion_detected') {
-        Alert.alert(
-          'Motion Detected',
-          'Motion detected by sPiCam. Start recording?',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Record 30s', onPress: () => startRecording(30) },
-            { text: 'Record 60s', onPress: () => startRecording(60) },
-          ]
-        )
-      }
-    })
+    if (typeof Notifications.addNotificationReceivedListener === 'function') {
+      notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
+        const data = notification.request.content.data
+        if (data?.type === 'motion_detected') {
+          Alert.alert(
+            'Motion Detected',
+            'Motion detected by sPiCam. Start recording?',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Record 30s', onPress: () => { void startRecording(30) } },
+              { text: 'Record 60s', onPress: () => { void startRecording(60) } },
+            ]
+          )
+        }
+      })
+    } else {
+      log('Notifications.addNotificationReceivedListener unavailable')
+    }
 
     // Listen for notification taps when app was in background
-    responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
-      const data = response.notification.request.content.data
-      if (data?.type === 'motion_detected') {
-        Alert.alert(
-          'Motion Detected',
-          'Motion detected by sPiCam. Start recording?',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Record 30s', onPress: () => startRecording(30) },
-            { text: 'Record 60s', onPress: () => startRecording(60) },
-          ]
-        )
-      }
-    })
+    if (typeof Notifications.addNotificationResponseReceivedListener === 'function') {
+      responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+        const data = response.notification.request.content.data
+        if (data?.type === 'motion_detected') {
+          Alert.alert(
+            'Motion Detected',
+            'Motion detected by sPiCam. Start recording?',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Record 30s', onPress: () => { void startRecording(30) } },
+              { text: 'Record 60s', onPress: () => { void startRecording(60) } },
+            ]
+          )
+        }
+      })
+    } else {
+      log('Notifications.addNotificationResponseReceivedListener unavailable')
+    }
 
     return () => {
-      if (notificationListener.current) {
-        Notifications.removeNotificationSubscription(notificationListener.current)
+      if (notificationListener.current && typeof notificationListener.current.remove === 'function') {
+        notificationListener.current.remove()
       }
-      if (responseListener.current) {
-        Notifications.removeNotificationSubscription(responseListener.current)
+      if (responseListener.current && typeof responseListener.current.remove === 'function') {
+        responseListener.current.remove()
       }
     }
   }, [fetchEvents, fetchAzure, fetchPanTiltStatus, fetchNotifications, baseUrl, startRecording])
@@ -598,14 +745,15 @@ function AppContent() {
       if (recentsFilter === 'photos') return isPhotoFile(item.filename)
       return isVideoFile(item.filename)
     })
-    const items = isRecents ? filteredEvents : azureBlobs
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.sectionHeader}>
           <Pressable onPress={() => setGalleryMode(null)}>
             <Text style={styles.link}>Back</Text>
           </Pressable>
-          <Text style={styles.sectionTitle}>{isRecents ? `Recent Events (${items.length})` : `Cloud Photos (${items.length})`}</Text>
+          <Text style={styles.sectionTitle}>
+            {isRecents ? `Recent Events (${filteredEvents.length})` : `Cloud Photos (${azureBlobs.length})`}
+          </Text>
           <View style={{ width: 48 }} />
         </View>
 
@@ -625,14 +773,25 @@ function AppContent() {
           </View>
         )}
 
-        <FlatList
-          data={items}
-          keyExtractor={item => (isRecents ? (item as any).filename : (item as any).name)}
-          renderItem={isRecents ? renderEvent : renderAzure}
-          style={styles.eventsListFull}
-          contentContainerStyle={styles.eventsContent}
-          ListEmptyComponent={<Text style={styles.emptyText}>No items yet.</Text>}
-        />
+        {isRecents ? (
+          <FlatList
+            data={filteredEvents}
+            keyExtractor={item => item.filename}
+            renderItem={renderEvent}
+            style={styles.eventsListFull}
+            contentContainerStyle={styles.eventsContent}
+            ListEmptyComponent={<Text style={styles.emptyText}>No items yet.</Text>}
+          />
+        ) : (
+          <FlatList
+            data={azureBlobs}
+            keyExtractor={item => item.name}
+            renderItem={renderAzure}
+            style={styles.eventsListFull}
+            contentContainerStyle={styles.eventsContent}
+            ListEmptyComponent={<Text style={styles.emptyText}>No items yet.</Text>}
+          />
+        )}
       </SafeAreaView>
     )
   }
@@ -656,12 +815,44 @@ function AppContent() {
         />
       </View>
 
+      <Text style={styles.status}>
+        App state: {appState} · Motion {isAppActive ? 'disarmed' : 'armed'}
+      </Text>
+
       <View style={styles.streamContainer}>
-        <WebView 
-          source={{ uri: `${baseUrl}/stream` }} 
-          style={{ flex: 1 }}
-        />
+        {isAppActive && !isRecording ? (
+          <WebView
+            key={`stream-${streamKey}`}
+            source={{ uri: `${baseUrl}/stream` }}
+            style={{ flex: 1 }}
+            onError={event => {
+              const message = event.nativeEvent?.description ?? 'Stream error'
+              log('Stream error', message)
+              setStreamError(message)
+            }}
+            onHttpError={event => {
+              const message = `HTTP ${event.nativeEvent.statusCode}`
+              log('Stream HTTP error', message)
+              setStreamError(message)
+            }}
+          />
+        ) : (
+          <View style={styles.streamOverlay}>
+            <Text style={styles.streamOverlayTitle}>
+              {isRecording ? 'Recording in progress' : 'Stream paused'}
+            </Text>
+            <Text style={styles.streamOverlayText}>
+              {isRecording
+                ? 'Live preview is paused while the camera saves the clip.'
+                : 'Motion detection is active while the app is in the background.'}
+            </Text>
+          </View>
+        )}
       </View>
+      <Pressable style={styles.streamReload} onPress={reloadStream}>
+        <Text style={styles.streamReloadText}>Reload stream</Text>
+      </Pressable>
+      {streamError ? <Text style={styles.streamError}>{streamError}</Text> : null}
 
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Pan / Tilt</Text>
@@ -744,9 +935,11 @@ function AppContent() {
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Video Recording</Text>
         {expoPushToken ? (
-          <Text style={styles.linkDisabled}>Notifications ✓</Text>
+          <Pressable onPress={disablePushNotifications}>
+            <Text style={styles.link}>Disable Alerts</Text>
+          </Pressable>
         ) : (
-          <Pressable onPress={registerForPushNotifications}>
+          <Pressable onPress={() => { void registerForPushNotifications() }}>
             <Text style={styles.link}>Enable Alerts</Text>
           </Pressable>
         )}
@@ -770,7 +963,7 @@ function AppContent() {
         </View>
         <Pressable 
           style={[styles.button, isRecording && styles.buttonDisabled]} 
-          onPress={() => startRecording(recordDuration)}
+          onPress={() => { void startRecording(recordDuration) }}
           disabled={isRecording}
         >
           <Text style={styles.buttonText}>
@@ -779,16 +972,28 @@ function AppContent() {
         </Pressable>
       </View>
 
-      {notifications.length > 0 && (
-        <View style={styles.notificationsContainer}>
-          <Text style={styles.sectionTitle}>Notifications</Text>
-          {notifications.slice(0, 5).map(item => (
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Notifications</Text>
+        <Pressable onPress={fetchNotifications}>
+          <Text style={styles.link}>Refresh</Text>
+        </Pressable>
+      </View>
+      <View style={styles.notificationsContainer}>
+        <Text style={styles.notificationsMeta}>
+          {notificationsUpdatedAt
+            ? `Last updated ${notificationsUpdatedAt.toLocaleString()}`
+            : 'Not loaded yet'}
+        </Text>
+        {notifications.length > 0 ? (
+          notifications.slice(0, 5).map(item => (
             <Text key={`${item.timestamp}-${item.message}`} style={styles.notificationText}>
               {new Date(item.timestamp).toLocaleString()} · {item.message}
             </Text>
-          ))}
-        </View>
-      )}
+          ))
+        ) : (
+          <Text style={styles.emptyText}>No notifications yet.</Text>
+        )}
+      </View>
 
       <Text style={styles.status}>{status}</Text>
       </ScrollView>
@@ -860,6 +1065,44 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderWidth: 1,
     borderColor: '#2b2b2b',
+  },
+  streamOverlay: {
+    position: 'absolute',
+    inset: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.72)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  streamOverlayTitle: {
+    color: '#f5f0e6',
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  streamOverlayText: {
+    color: '#bfae8a',
+    textAlign: 'center',
+  },
+  streamReload: {
+    alignSelf: 'flex-start',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#2b2b2b',
+    backgroundColor: '#141414',
+    marginBottom: 12,
+  },
+  streamReloadText: {
+    color: '#d1b06b',
+    fontSize: 12,
+    letterSpacing: 0.3,
+  },
+  streamError: {
+    color: '#d18b6b',
+    fontSize: 12,
+    marginBottom: 12,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -1029,6 +1272,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#2b2b2b',
     backgroundColor: '#121212',
+  },
+  notificationsMeta: {
+    color: '#9c8a63',
+    fontSize: 11,
+    marginBottom: 8,
   },
   notificationText: {
     color: '#bfae8a',
