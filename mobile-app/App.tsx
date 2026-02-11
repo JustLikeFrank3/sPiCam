@@ -36,6 +36,10 @@ function AppContent() {
   const [servoEnabled, setServoEnabled] = useState(false)
   const [servoError, setServoError] = useState<string | null>(null)
   const [panTiltCollapsed, setPanTiltCollapsed] = useState(false)
+  const [motionSettingsCollapsed, setMotionSettingsCollapsed] = useState(true)
+  const [motionThreshold, setMotionThreshold] = useState(4)
+  const [motionMinArea, setMotionMinArea] = useState(10)
+  const [notificationCooldown, setNotificationCooldown] = useState(30)
   const [isRecording, setIsRecording] = useState(false)
   const [recordDuration, setRecordDuration] = useState(30)
   const [expoPushToken, setExpoPushToken] = useState<string | null>(null)
@@ -276,6 +280,35 @@ function AppContent() {
     }
   }, [baseUrl])
 
+  const fetchMotionSettings = useCallback(async () => {
+    try {
+      const res = await fetch(`${baseUrl}/motion/settings`)
+      const json = await res.json()
+      if (json?.threshold != null) setMotionThreshold(json.threshold)
+      if (json?.min_area != null) setMotionMinArea(json.min_area)
+      if (json?.cooldown != null) setNotificationCooldown(json.cooldown)
+    } catch (error) {
+      // ignore errors
+    }
+  }, [baseUrl])
+
+  const updateMotionSettings = useCallback(async () => {
+    try {
+      await fetch(`${baseUrl}/motion/settings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          threshold: motionThreshold,
+          min_area: motionMinArea,
+          cooldown: notificationCooldown
+        })
+      })
+      setStatus('Motion settings updated')
+    } catch (error) {
+      setStatus('Failed to update motion settings')
+    }
+  }, [baseUrl, motionThreshold, motionMinArea, notificationCooldown])
+
   const startRecording = useCallback(async (durationSeconds: number) => {
     log('Starting recording for', durationSeconds, 'seconds')
     try {
@@ -427,6 +460,7 @@ function AppContent() {
     fetchAzure()
     fetchPanTiltStatus()
     fetchNotifications()
+    fetchMotionSettings()
 
     if (!hasAttemptedAutoRegister.current) {
       hasAttemptedAutoRegister.current = true
@@ -853,6 +887,54 @@ function AppContent() {
         <Text style={styles.streamReloadText}>Reload stream</Text>
       </Pressable>
       {streamError ? <Text style={styles.streamError}>{streamError}</Text> : null}
+
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Motion Settings</Text>
+        <Pressable onPress={() => setMotionSettingsCollapsed(prev => !prev)}>
+          <Text style={styles.link}>{motionSettingsCollapsed ? 'Show' : 'Hide'}</Text>
+        </Pressable>
+      </View>
+
+      {!motionSettingsCollapsed && (
+        <>
+          <View style={styles.inputRow}>
+            <Text style={styles.inputLabel}>Threshold (1-50):</Text>
+            <TextInput
+              style={styles.input}
+              value={String(motionThreshold)}
+              onChangeText={text => setMotionThreshold(Number(text) || 1)}
+              keyboardType="numeric"
+              placeholder="4"
+            />
+          </View>
+
+          <View style={styles.inputRow}>
+            <Text style={styles.inputLabel}>Min Area (5-1000):</Text>
+            <TextInput
+              style={styles.input}
+              value={String(motionMinArea)}
+              onChangeText={text => setMotionMinArea(Number(text) || 5)}
+              keyboardType="numeric"
+              placeholder="10"
+            />
+          </View>
+
+          <View style={styles.inputRow}>
+            <Text style={styles.inputLabel}>Cooldown (5-300s):</Text>
+            <TextInput
+              style={styles.input}
+              value={String(notificationCooldown)}
+              onChangeText={text => setNotificationCooldown(Number(text) || 5)}
+              keyboardType="numeric"
+              placeholder="60"
+            />
+          </View>
+
+          <Pressable style={styles.updateButton} onPress={updateMotionSettings}>
+            <Text style={styles.updateButtonText}>Update Settings</Text>
+          </Pressable>
+        </>
+      )}
 
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Pan / Tilt</Text>
@@ -1446,5 +1528,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6a8a6a',
     fontWeight: '600',
+  },
+  inputLabel: {
+    color: '#bfae8a',
+    marginBottom: 6,
+    letterSpacing: 0.4,
+    fontSize: 14,
+  },
+  updateButton: {
+    backgroundColor: '#d1b06b',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  updateButtonText: {
+    color: '#0b0b0b',
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
 })

@@ -1,0 +1,11 @@
+{
+  "camera_source": "picamera",
+  "usb_camera_device": "/dev/video2",
+  "usb_camera_size": "1280x720",
+  "usb_camera_fps": 30,
+  "usb_camera_format": "MJPG",
+  "usb_audio_enabled": true,
+  "usb_audio_device": "default",
+  "usb_audio_rate": 48000,
+  "usb_audio_channels": 1
+}

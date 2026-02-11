@@ -36,7 +36,7 @@ picam = None
 motion_enabled = True
 last_motion_ts: Optional[float] = None
 last_notification_time: Optional[float] = None
-NOTIFICATION_COOLDOWN = 60  # seconds between notifications
+NOTIFICATION_COOLDOWN = int(os.getenv("NOTIFICATION_COOLDOWN", "60"))
 motion_lock = threading.Lock()
 background_frame: Optional[np.ndarray] = None
 motion_thread: Optional[threading.Thread] = None
@@ -67,8 +67,8 @@ if AZURE_CONNECTION_STRING:
 else:
     print("[PiCam] Azure upload disabled: AZURE_STORAGE_CONNECTION_STRING not set")
 
-MOTION_THRESHOLD = int(os.getenv("MOTION_THRESHOLD", "6"))
-MOTION_MIN_AREA = int(os.getenv("MOTION_MIN_AREA", "20"))
+MOTION_THRESHOLD = int(os.getenv("MOTION_THRESHOLD", "4"))
+MOTION_MIN_AREA = int(os.getenv("MOTION_MIN_AREA", "10"))
 MOTION_COOLDOWN_SEC = 3
 MOTION_WARMUP_SEC = float(os.getenv("MOTION_WARMUP_SEC", "3"))
 CLIP_SECONDS = 3
@@ -705,6 +705,67 @@ async def disarm_motion():
     motion_enabled = False
     motion_enabled_since = None
     return {"motion_enabled": motion_enabled}
+
+
+@app.get("/motion/settings")
+async def get_motion_settings():
+    """Get current motion detection settings"""
+    return {
+        "threshold": MOTION_THRESHOLD,
+        "min_area": MOTION_MIN_AREA,
+        "cooldown": NOTIFICATION_COOLDOWN
+    }
+
+
+class MotionSettings(BaseModel):
+    threshold: Optional[int] = None
+    min_area: Optional[int] = None
+    cooldown: Optional[int] = None
+
+
+@app.post("/motion/settings")
+async def update_motion_settings(settings: MotionSettings):
+    """Update motion detection settings"""
+    global MOTION_THRESHOLD, MOTION_MIN_AREA, NOTIFICATION_COOLDOWN
+    
+    if settings.threshold is not None:
+        MOTION_THRESHOLD = max(1, min(50, settings.threshold))
+    if settings.min_area is not None:
+        MOTION_MIN_AREA = max(5, min(1000, settings.min_area))
+    if settings.cooldown is not None:
+        NOTIFICATION_COOLDOWN = max(5, min(300, settings.cooldown))
+    
+    # Update .env file
+    env_file = BASE_DIR / ".env"
+    env_lines = []
+    if env_file.exists():
+        env_lines = env_file.read_text().splitlines()
+    
+    # Update or add settings
+    settings_map = {
+        "MOTION_THRESHOLD": str(MOTION_THRESHOLD),
+        "MOTION_MIN_AREA": str(MOTION_MIN_AREA),
+        "NOTIFICATION_COOLDOWN": str(NOTIFICATION_COOLDOWN)
+    }
+    
+    for key, value in settings_map.items():
+        found = False
+        for i, line in enumerate(env_lines):
+            if line.startswith(f"{key}="):
+                env_lines[i] = f"{key}={value}"
+                found = True
+                break
+        if not found:
+            env_lines.append(f"{key}={value}")
+    
+    env_file.write_text("\n".join(env_lines) + "\n")
+    
+    return {
+        "threshold": MOTION_THRESHOLD,
+        "min_area": MOTION_MIN_AREA,
+        "cooldown": NOTIFICATION_COOLDOWN,
+        "updated": True
+    }
 
 
 @app.get("/status")
