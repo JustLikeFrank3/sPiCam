@@ -13,10 +13,12 @@ A Raspberry Pi camera project with a FastAPI server and an iOS mobile app.
 ## Recent Features
 - Push notifications for motion events
 - App-controlled motion arm/disarm on foreground/background
+- **Motion sensitivity UI controls** - adjust threshold, min area, and cooldown from mobile app
 - Manual recording with MP4 conversion and "recording ready" notification
 - Stream recovery controls (reload + server stop/debounce)
 - Motion debug/metrics endpoints for tuning
 - Push token persistence on the Pi
+- **Tailscale VPN support** - remote access from anywhere
 
 ## Pi Server Setup (on Raspberry Pi)
 1. Install OS + enable camera:
@@ -67,6 +69,33 @@ When connected, use base URL: `http://192.168.4.1:8000`
 2. `npm install`
 3. `npm run start`
 
+## Remote Access (Tailscale)
+Access your Pi from anywhere using Tailscale VPN:
+
+**On the Pi:**
+```bash
+curl -fsSL https://tailscale.com/install.sh | sh
+sudo tailscale up
+```
+
+**On your phone:**
+1. Install Tailscale from App Store
+2. Sign in with same account
+3. Connect to Tailscale network
+
+**Update mobile app** (already configured):
+- App uses Tailscale IP: `100.86.177.103:8000`
+- Works on home WiFi, cellular, anywhere when Tailscale is connected
+
+**Deploy to Pi:**
+```bash
+# Local network (default)
+./deploy-to-pi.sh
+
+# Or via Tailscale when remote
+PI_HOST=100.86.177.103 ./deploy-to-pi.sh
+```
+
 ## Push Notifications
 1. Ensure `expo.extra.eas.projectId` is set in `mobile-app/app.json`.
 2. Configure APNs credentials via EAS.
@@ -88,6 +117,8 @@ When connected, use base URL: `http://192.168.4.1:8000`
 - `POST /motion/test` send a test push notification
 - `GET /motion/debug` motion debug status
 - `GET /motion/metrics` motion detection metrics
+- `GET /motion/settings` get motion sensitivity settings
+- `POST /motion/settings` update motion sensitivity settings
 - `GET /media/{filename}` serve photos and motion clips
 - `GET /azure/blobs` list Azure blobs
 - `GET /azure/media/{blob_name}` stream Azure blob
@@ -98,13 +129,24 @@ When enabled, a short MJPG clip is saved as `motion_<timestamp>.avi`.
 Use `/events` to list clips and `/media/{filename}` to download.
 
 ## Motion Tuning
-You can override defaults via `pi-server/.env`:
-- `MOTION_THRESHOLD` (default 6)
-- `MOTION_MIN_AREA` (default 20)
+**Adjust via Mobile App UI:**
+The app includes a "Motion Settings" section to dynamically adjust:
+- **Threshold** (1-50): Pixel difference sensitivity (default: 25)
+- **Min Area** (5-1000): Minimum contour size to trigger detection (default: 500)
+- **Cooldown** (5-300s): Seconds between notifications (default: 60)
+
+Settings are persisted to `pi-server/.env` and take effect immediately.
+
+**Manual Override** via `pi-server/.env`:
+- `MOTION_THRESHOLD` (default 25)
+- `MOTION_MIN_AREA` (default 500)
+- `NOTIFICATION_COOLDOWN` (default 60)
 - `MOTION_WARMUP_SEC` (default 3)
 - `STREAM_STALE_SEC` (default 30)
 - `STREAM_WARMUP_SEC` (default 10)
 - `STREAM_DEBOUNCE_SEC` (default 5)
+
+**Note for Pi Zero 2 W:** Lower values (threshold < 10, min_area < 100) can overwhelm the limited 512MB RAM, causing crashes. Use the Motion Settings UI to find optimal values for your environment.
 
 ## Security Mode (next)
 - Motion detection (frame diff or PIR)

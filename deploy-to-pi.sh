@@ -7,7 +7,7 @@
 #   export PI_PATH=~/spicam
 #   ./deploy-to-pi.sh
 
-PI_HOST="${PI_HOST:-raspberrypi.local}"  # or use IP like 192.168.1.100
+PI_HOST="${PI_HOST:-192.168.68.71}"  # Local IP (use PI_HOST=100.86.177.103 for Tailscale)
 PI_USER="${PI_USER:-fvm3}"  # Change to your Pi username
 PI_PATH="${PI_PATH:-~/pi-server}"
 

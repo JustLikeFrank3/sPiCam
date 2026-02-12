@@ -15,10 +15,10 @@ function AppContent() {
   }
   const logo = require('./assets/spicam_icon_1024.png')
   const defaultBaseUrl = Constants.isDevice
-    ? 'http://192.168.68.71:8000'
+    ? 'http://100.86.177.103:8000'
     : Platform.OS === 'android'
       ? 'http://10.0.2.2:8000'
-      : 'http://192.168.68.71:8000'
+      : 'http://100.86.177.103:8000'
   const [baseUrl, setBaseUrl] = useState(defaultBaseUrl)
   const [status, setStatus] = useState('')
   const [events, setEvents] = useState<Array<{ filename: string; path: string; timestamp: number }>>([])

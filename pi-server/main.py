@@ -67,8 +67,8 @@ if AZURE_CONNECTION_STRING:
 else:
     print("[PiCam] Azure upload disabled: AZURE_STORAGE_CONNECTION_STRING not set")
 
-MOTION_THRESHOLD = int(os.getenv("MOTION_THRESHOLD", "4"))
-MOTION_MIN_AREA = int(os.getenv("MOTION_MIN_AREA", "10"))
+MOTION_THRESHOLD = int(os.getenv("MOTION_THRESHOLD", "25"))
+MOTION_MIN_AREA = int(os.getenv("MOTION_MIN_AREA", "500"))
 MOTION_COOLDOWN_SEC = 3
 MOTION_WARMUP_SEC = float(os.getenv("MOTION_WARMUP_SEC", "3"))
 CLIP_SECONDS = 3
