@@ -31,6 +31,66 @@ fi
 echo "✅ GitHub CLI authenticated"
 echo ""
 
+echo "🏷️  Creating labels..."
+echo "====================="
+echo ""
+
+# Create labels (skip if already exists)
+create_label() {
+    local name="$1"
+    local color="$2"
+    local description="$3"
+    
+    gh label create "$name" --color "$color" --description "$description" --repo "$REPO" 2>/dev/null || true
+}
+
+# Type labels
+create_label "feature" "0e8a16" "New functionality"
+create_label "enhancement" "a2eeef" "Improvement to existing feature"
+create_label "bug" "d73a4a" "Something isn't working"
+create_label "documentation" "0075ca" "Documentation updates"
+create_label "research" "fbca04" "Investigation/exploration needed"
+
+# Component labels
+create_label "pi-server" "1d76db" "Python FastAPI server"
+create_label "mobile-app" "5319e7" "React Native mobile app"
+create_label "hardware" "d4c5f9" "Raspberry Pi or camera hardware"
+create_label "cloud" "006b75" "Azure/AWS integration"
+create_label "notifications" "0052cc" "Push notification system"
+
+# Platform labels
+create_label "ios" "000000" "iOS specific"
+create_label "android" "3ddc84" "Android specific"
+
+# Priority labels
+create_label "priority: high" "b60205" "Important"
+create_label "priority: medium" "fbca04" "Standard"
+create_label "priority: low" "c5def5" "Nice to have"
+
+# Status labels
+create_label "good first issue" "7057ff" "Good for newcomers"
+create_label "help wanted" "008672" "Extra attention is needed"
+create_label "blocked" "e99695" "Cannot proceed"
+
+# Quality labels
+create_label "testing" "e7e7e7" "Test coverage"
+create_label "security" "d93f0b" "Security related"
+create_label "performance" "ff6b6b" "Performance optimization"
+create_label "ux" "c5def5" "User experience"
+create_label "ui" "d4c5f9" "User interface"
+create_label "offline" "bfdadc" "Offline functionality"
+create_label "devops" "59aabb" "DevOps and infrastructure"
+create_label "ci-cd" "6fa8dc" "Continuous integration/delivery"
+create_label "community" "006b75" "Community and contributions"
+create_label "integration" "bfd4f2" "Third-party integrations"
+create_label "ai" "ee0701" "Artificial intelligence"
+create_label "iot" "84b6eb" "Internet of Things"
+create_label "power" "fef2c0" "Power management"
+create_label "homekit" "ff9bff" "HomeKit integration"
+
+echo "✓ Labels created"
+echo ""
+
 # Function to create issue and add to project
 create_issue() {
     local title="$1"
