@@ -34,6 +34,44 @@ A Raspberry Pi camera project with a FastAPI server and an iOS mobile app.
 4. Run server:
    - `uvicorn main:app --host 0.0.0.0 --port 8000`
 
+### Auto-start on Boot (systemd)
+To run the server automatically on boot:
+
+```bash
+# Create service file
+sudo tee /etc/systemd/system/spicam.service > /dev/null << 'EOF'
+[Unit]
+Description=sPiCam Server
+After=network.target
+
+[Service]
+Type=simple
+User=fvm3
+WorkingDirectory=/home/fvm3/pi-server
+ExecStart=/home/fvm3/pi-server/.venv/bin/python3 /home/fvm3/pi-server/main.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Enable and start service
+sudo systemctl daemon-reload
+sudo systemctl enable spicam.service
+sudo systemctl start spicam.service
+sudo systemctl status spicam.service
+```
+
+Manage the service:
+```bash
+sudo systemctl status spicam.service   # Check status
+sudo systemctl restart spicam.service  # Restart
+journalctl -u spicam.service -f        # View logs
+```
+
+**Note:** Replace `fvm3` with your username and adjust paths if different.
+
 ## Azure Blob Storage (optional)
 1. Create a storage account and container.
 2. Copy `pi-server/.env.example` to `pi-server/.env` and set:
@@ -68,6 +106,22 @@ When connected, use base URL: `http://192.168.4.1:8000`
 1. `cd mobile-app`
 2. `npm install`
 3. `npm run start`
+
+## TestFlight Deployment
+To deploy sPiCam to TestFlight for beta testing:
+- See [TESTFLIGHT.md](TESTFLIGHT.md) for complete deployment guide
+- Requires Apple Developer account ($99/year)
+- Uses EAS (Expo Application Services) for building and submission
+- Push notifications configured for production APNs
+
+Quick start:
+```bash
+npm install -g eas-cli
+eas login
+cd mobile-app
+eas build --platform ios --profile production
+eas submit --platform ios --profile production
+```
 
 ## Remote Access (Tailscale)
 Access your Pi from anywhere using Tailscale VPN:

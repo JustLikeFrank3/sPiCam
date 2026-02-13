@@ -30,7 +30,7 @@
       },
       "bundleIdentifier": "com.justlikefrank3.spicam",
       "entitlements": {
-        "aps-environment": "development"
+        "aps-environment": "production"
       }
     },
     "plugins": [

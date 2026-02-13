@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react'
-import { StyleSheet, Text, View, Pressable, TextInput, FlatList, Platform, Image, ScrollView, Alert, AppState } from 'react-native'
+import { StyleSheet, Text, View, Pressable, TextInput, FlatList, Platform, Image, ScrollView, Alert, AppState, Modal, Linking } from 'react-native'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import Constants from 'expo-constants'
 import { WebView } from 'react-native-webview'
@@ -47,6 +47,9 @@ function AppContent() {
   const [appState, setAppState] = useState<string>(AppState.currentState)
   const [streamKey, setStreamKey] = useState(0)
   const [streamError, setStreamError] = useState<string | null>(null)
+  const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'failed'>('checking')
+  const [showConnectionHelp, setShowConnectionHelp] = useState(false)
+  const [customIp, setCustomIp] = useState('')
   const notificationListener = useRef<any>(null)
   const responseListener = useRef<any>(null)
   const hasAttemptedAutoRegister = useRef(false)
@@ -309,6 +312,39 @@ function AppContent() {
     }
   }, [baseUrl, motionThreshold, motionMinArea, notificationCooldown])
 
+  const checkConnection = useCallback(async () => {
+    try {
+      setConnectionStatus('checking')
+      const res = await fetch(`${baseUrl}/status`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(5000)
+      })
+      if (res.ok) {
+        setConnectionStatus('connected')
+        setShowConnectionHelp(false)
+      } else {
+        setConnectionStatus('failed')
+        setShowConnectionHelp(true)
+      }
+    } catch (error) {
+      setConnectionStatus('failed')
+      setShowConnectionHelp(true)
+    }
+  }, [baseUrl])
+
+  const retryConnection = useCallback(() => {
+    checkConnection()
+  }, [checkConnection])
+
+  const useCustomIp = useCallback(() => {
+    if (customIp.trim()) {
+      const formattedUrl = customIp.startsWith('http') ? customIp : `http://${customIp}`
+      setBaseUrl(formattedUrl)
+      setShowConnectionHelp(false)
+      // Will trigger checkConnection via useEffect on baseUrl change
+    }
+  }, [customIp])
+
   const startRecording = useCallback(async (durationSeconds: number) => {
     log('Starting recording for', durationSeconds, 'seconds')
     try {
@@ -456,6 +492,7 @@ function AppContent() {
 
 
   useEffect(() => {
+    checkConnection()
     fetchEvents()
     fetchAzure()
     fetchPanTiltStatus()
@@ -530,7 +567,11 @@ function AppContent() {
         responseListener.current.remove()
       }
     }
-  }, [fetchEvents, fetchAzure, fetchPanTiltStatus, fetchNotifications, baseUrl, startRecording])
+  }, [checkConnection, fetchEvents, fetchAzure, fetchPanTiltStatus, fetchNotifications, fetchMotionSettings, baseUrl, startRecording])
+
+  useEffect(() => {
+    checkConnection()
+  }, [baseUrl, checkConnection])
 
   const takePhoto = async () => {
     try {
@@ -832,6 +873,79 @@ function AppContent() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <Modal
+        visible={showConnectionHelp}
+        animationType="slide"
+        transparent={false}
+      >
+        <SafeAreaView style={styles.modalContainer}>
+          <ScrollView contentContainerStyle={styles.modalContent}>
+            <Text style={styles.modalTitle}>Connection Setup Required</Text>
+            
+            <Text style={styles.modalText}>
+              sPiCam couldn't reach your Raspberry Pi. To use this app remotely, you need to set up Tailscale VPN.
+            </Text>
+
+            <View style={styles.modalSection}>
+              <Text style={styles.modalSectionTitle}>Why Tailscale?</Text>
+              <Text style={styles.modalText}>
+                Tailscale creates a secure private network so you can access your Pi from anywhere (home WiFi, cellular, anywhere).
+              </Text>
+            </View>
+
+            <View style={styles.modalSection}>
+              <Text style={styles.modalSectionTitle}>Setup Steps:</Text>
+              <Text style={styles.modalText}>
+                1. Install Tailscale on your Raspberry Pi{'\n'}
+                2. Install Tailscale app on your iPhone{'\n'}
+                3. Sign in to same account on both devices{'\n'}
+                4. Connect to Tailscale network
+              </Text>
+            </View>
+
+            <Pressable 
+              style={styles.modalButton}
+              onPress={() => Linking.openURL('https://tailscale.com/download')}
+            >
+              <Text style={styles.modalButtonText}>Download Tailscale</Text>
+            </Pressable>
+
+            <View style={styles.modalSection}>
+              <Text style={styles.modalSectionTitle}>Or Enter Custom IP:</Text>
+              <TextInput
+                style={styles.input}
+                value={customIp}
+                onChangeText={setCustomIp}
+                placeholder="192.168.1.100:8000"
+                placeholderTextColor="#666"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <Pressable 
+                style={styles.modalButton}
+                onPress={useCustomIp}
+              >
+                <Text style={styles.modalButtonText}>Use This IP</Text>
+              </Pressable>
+            </View>
+
+            <Pressable 
+              style={styles.modalButtonSecondary}
+              onPress={retryConnection}
+            >
+              <Text style={styles.modalButtonSecondaryText}>Retry Connection</Text>
+            </Pressable>
+
+            <Pressable 
+              style={styles.modalButtonSecondary}
+              onPress={() => setShowConnectionHelp(false)}
+            >
+              <Text style={styles.modalButtonSecondaryText}>Dismiss</Text>
+            </Pressable>
+          </ScrollView>
+        </SafeAreaView>
+      </Modal>
+
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <Image source={logo} style={styles.logo} resizeMode="contain" />
@@ -1547,6 +1661,67 @@ const styles = StyleSheet.create({
     color: '#0b0b0b',
     fontSize: 15,
     fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#0b0b0b',
+  },
+  modalContent: {
+    padding: 24,
+  },
+  modalTitle: {
+    color: '#f5f0e6',
+    fontSize: 28,
+    fontWeight: '700',
+    marginBottom: 20,
+    letterSpacing: 0.6,
+  },
+  modalText: {
+    color: '#bfae8a',
+    fontSize: 16,
+    lineHeight: 24,
+    marginBottom: 16,
+  },
+  modalSection: {
+    marginTop: 24,
+    marginBottom: 16,
+  },
+  modalSectionTitle: {
+    color: '#f5f0e6',
+    fontSize: 20,
+    fontWeight: '600',
+    marginBottom: 12,
+    letterSpacing: 0.4,
+  },
+  modalButton: {
+    backgroundColor: '#d1b06b',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginVertical: 8,
+  },
+  modalButtonText: {
+    color: '#0b0b0b',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  modalButtonSecondary: {
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    borderColor: '#d1b06b',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginVertical: 8,
+  },
+  modalButtonSecondaryText: {
+    color: '#d1b06b',
+    fontSize: 16,
+    fontWeight: '600',
     letterSpacing: 0.5,
   },
 })
