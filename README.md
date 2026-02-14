@@ -213,3 +213,6 @@ Settings are persisted to `pi-server/.env` and take effect immediately.
 - Offline preview download
 - USB camera swap evaluation
 - Animated splash screen
+
+## License
+MIT License - see [LICENSE](LICENSE) for details.
