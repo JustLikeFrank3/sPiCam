@@ -396,8 +396,6 @@ def _upload_blob(path: Path):
                 content_settings=ContentSettings(content_type=content_type),
             )
         print(f"[PiCam] Azure upload ok: {path.name}")
-        # Cleanup old files after successful upload
-        _cleanup_old_media()
     except Exception as exc:
         print(f"[PiCam] Azure upload failed for {path.name}: {exc}")
 
@@ -761,6 +759,8 @@ async def list_azure_blobs(limit: int = 10000):
             )
             if len(blobs) >= max(1, limit):
                 break
+        # Sort by last_modified descending (newest first)
+        blobs.sort(key=lambda b: b.get("last_modified") or "", reverse=True)
     except Exception as exc:
         return JSONResponse({"error": f"Azure list failed: {exc}"}, status_code=500)
     return JSONResponse(blobs)
@@ -1219,9 +1219,16 @@ def start_button_handler():
         print("Starting physical shutter button handler...")
         threading.Thread(target=_button_handler, daemon=True).start()
 
+# Run cleanup once at startup
+def run_startup_cleanup():
+    print("Running one-time media cleanup at startup...")
+    time.sleep(10)  # Wait for service to fully start
+    _cleanup_old_media()
+
 _load_push_tokens()
 threading.Thread(target=delayed_motion_start, daemon=True).start()
 threading.Thread(target=start_button_handler, daemon=True).start()
+threading.Thread(target=run_startup_cleanup, daemon=True).start()
 
 if __name__ == "__main__":
     import uvicorn
