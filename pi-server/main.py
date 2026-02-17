@@ -386,6 +386,8 @@ def _upload_blob(path: Path):
         content_type = "application/octet-stream"
         if path.suffix.lower() in [".jpg", ".jpeg"]:
             content_type = "image/jpeg"
+        elif path.suffix.lower() == ".mp4":
+            content_type = "video/mp4"
         elif path.suffix.lower() == ".avi":
             content_type = "video/x-msvideo"
         with open(path, "rb") as handle:
@@ -772,10 +774,16 @@ async def get_azure_media(blob_name: str):
         return JSONResponse({"error": "Azure not configured"}, status_code=400)
     try:
         blob_client = container_client.get_blob_client(blob_name)
-        props = blob_client.get_blob_properties()
-        content_type = None
-        if props.content_settings and props.content_settings.content_type:
-            content_type = props.content_settings.content_type
+        
+        # Determine content type from file extension
+        content_type = "application/octet-stream"
+        if blob_name.lower().endswith((".jpg", ".jpeg")):
+            content_type = "image/jpeg"
+        elif blob_name.lower().endswith(".mp4"):
+            content_type = "video/mp4"
+        elif blob_name.lower().endswith(".avi"):
+            content_type = "video/x-msvideo"
+        
         download = blob_client.download_blob()
         return StreamingResponse(download.chunks(), media_type=content_type)
     except Exception as exc:
