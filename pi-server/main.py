@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse, JSONResponse, FileResponse
 from pathlib import Path
 import io
@@ -769,7 +769,7 @@ async def list_azure_blobs(limit: int = 10000):
 
 
 @app.get("/azure/media/{blob_name:path}")
-async def get_azure_media(blob_name: str):
+async def get_azure_media(blob_name: str, request: Request):
     if container_client is None:
         return JSONResponse({"error": "Azure not configured"}, status_code=400)
     try:
@@ -784,8 +784,44 @@ async def get_azure_media(blob_name: str):
         elif blob_name.lower().endswith(".avi"):
             content_type = "video/x-msvideo"
         
-        download = blob_client.download_blob()
-        return StreamingResponse(download.chunks(), media_type=content_type)
+        # Get blob properties for size
+        props = blob_client.get_blob_properties()
+        file_size = props.size
+        
+        # Handle range requests for video streaming
+        range_header = request.headers.get("range")
+        if range_header:
+            # Parse range header (e.g., "bytes=0-1023")
+            range_match = range_header.replace("bytes=", "").split("-")
+            start = int(range_match[0]) if range_match[0] else 0
+            end = int(range_match[1]) if len(range_match) > 1 and range_match[1] else file_size - 1
+            
+            # Download specific range
+            length = end - start + 1
+            download = blob_client.download_blob(offset=start, length=length)
+            
+            # Return 206 Partial Content
+            return StreamingResponse(
+                download.chunks(),
+                status_code=206,
+                media_type=content_type,
+                headers={
+                    "Content-Range": f"bytes {start}-{end}/{file_size}",
+                    "Accept-Ranges": "bytes",
+                    "Content-Length": str(length),
+                }
+            )
+        else:
+            # No range requested, return full file
+            download = blob_client.download_blob()
+            return StreamingResponse(
+                download.chunks(),
+                media_type=content_type,
+                headers={
+                    "Accept-Ranges": "bytes",
+                    "Content-Length": str(file_size),
+                }
+            )
     except Exception as exc:
         return JSONResponse({"error": f"Azure fetch failed: {exc}"}, status_code=500)
 
