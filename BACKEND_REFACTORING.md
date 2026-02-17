@@ -525,6 +525,7 @@ Maintain all existing locks and thread safety mechanisms. Motion detection and s
 - RTC endpoints/logic removed from active backend path (deprecated).
 - Startup/thread orchestration extracted to `services/startup_service.py`.
 - Physical button polling/press behavior extracted to `services/button_service.py`.
+- Final composition pass: orchestration helpers moved into `services/backend_service.py`; `main.py` reduced to service wiring + router registration.
 
 ### In Progress
 - Phase 4/5/8/9: Camera + motion services/routers and slimming `main.py` to orchestration-only.
