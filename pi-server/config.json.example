@@ -7,5 +7,7 @@
   "usb_audio_enabled": true,
   "usb_audio_device": "default",
   "usb_audio_rate": 48000,
-  "usb_audio_channels": 1
+  "usb_audio_channels": 1,
+  "shutter_button_gpio": 17,
+  "shutter_button_enabled": true
 }

@@ -78,18 +78,9 @@ STREAM_STALE_SEC = float(os.getenv("STREAM_STALE_SEC", "30"))
 STREAM_DEBOUNCE_SEC = float(os.getenv("STREAM_DEBOUNCE_SEC", "5"))
 STREAM_WARMUP_SEC = float(os.getenv("STREAM_WARMUP_SEC", "10"))
 
-SERVO_ENABLED = os.getenv("SERVO_ENABLED", "0") == "1"
-SERVO_PAN_CHANNEL = int(os.getenv("SERVO_PAN_CHANNEL", "0"))
-SERVO_TILT_CHANNEL = int(os.getenv("SERVO_TILT_CHANNEL", "1"))
-SERVO_PAN_MIN = int(os.getenv("SERVO_PAN_MIN", "10"))
-SERVO_PAN_MAX = int(os.getenv("SERVO_PAN_MAX", "170"))
-SERVO_TILT_MIN = int(os.getenv("SERVO_TILT_MIN", "10"))
-SERVO_TILT_MAX = int(os.getenv("SERVO_TILT_MAX", "170"))
 RTC_ENABLED = os.getenv("RTC_ENABLED", "0") == "1"
-
-servo_kit = None
-servo_error: Optional[str] = None
-servo_state = {"pan": None, "tilt": None}
+SHUTTER_BUTTON_ENABLED = os.getenv("SHUTTER_BUTTON_ENABLED", "1") == "1"
+SHUTTER_BUTTON_GPIO = int(os.getenv("SHUTTER_BUTTON_GPIO", "17"))
 rtc_device = None
 rtc_error: Optional[str] = None
 motion_notifications = []
@@ -97,11 +88,8 @@ MOTION_NOTIFICATIONS_MAX = 50
 push_tokens = set()
 recording_state = {"is_recording": False, "duration": 0, "start_time": None}
 PUSH_TOKENS_FILE = BASE_DIR / "push_tokens.json"
+button_gpio_initialized = False
 
-
-class PanTiltRequest(BaseModel):
-    pan: Optional[float] = None
-    tilt: Optional[float] = None
 
 class RecordRequest(BaseModel):
     duration: int = 30
@@ -157,23 +145,108 @@ def _clamp(value: float, minimum: int, maximum: int) -> float:
     return max(minimum, min(maximum, value))
 
 
-def _init_servos():
-    global servo_kit, servo_error
-    if servo_kit is not None or servo_error is not None or not SERVO_ENABLED:
+def _init_button_gpio():
+    """Initialize GPIO for physical shutter button"""
+    global button_gpio_initialized
+    if button_gpio_initialized or not SHUTTER_BUTTON_ENABLED:
         return
     try:
-        from adafruit_servokit import ServoKit
-
-        servo_kit = ServoKit(channels=16)
-        center_pan = (SERVO_PAN_MIN + SERVO_PAN_MAX) / 2
-        center_tilt = (SERVO_TILT_MIN + SERVO_TILT_MAX) / 2
-        servo_state["pan"] = center_pan
-        servo_state["tilt"] = center_tilt
-        servo_kit.servo[SERVO_PAN_CHANNEL].angle = center_pan
-        servo_kit.servo[SERVO_TILT_CHANNEL].angle = center_tilt
+        import RPi.GPIO as GPIO
+        GPIO.setmode(GPIO.BCM)
+        GPIO.setup(SHUTTER_BUTTON_GPIO, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+        button_gpio_initialized = True
+        print(f"[PiCam] Shutter button initialized on GPIO {SHUTTER_BUTTON_GPIO}")
     except Exception as exc:
-        servo_error = str(exc)
-        print(f"[PiCam] Servo init failed: {exc}")
+        print(f"[PiCam] Button GPIO init failed: {exc}")
+
+
+def _button_handler():
+    """Monitor physical button presses and trigger photo/video capture"""
+    if not SHUTTER_BUTTON_ENABLED:
+        return
+    
+    _init_button_gpio()
+    if not button_gpio_initialized:
+        return
+    
+    import RPi.GPIO as GPIO
+    
+    print("[PiCam] Button handler thread started")
+    while True:
+        try:
+            # Wait for button press (falling edge, button connects to GND)
+            GPIO.wait_for_edge(SHUTTER_BUTTON_GPIO, GPIO.FALLING)
+            press_start = time.time()
+            
+            # Wait for button release
+            while GPIO.input(SHUTTER_BUTTON_GPIO) == GPIO.LOW:
+                time.sleep(0.05)
+            
+            press_duration = time.time() - press_start
+            
+            if press_duration < 0.5:
+                # Short press: capture photo
+                print(f"[PiCam] Button: short press ({press_duration:.2f}s) - capturing photo")
+                _capture_photo()
+            elif press_duration < 2.0:
+                # Medium hold: record 30s video
+                print(f"[PiCam] Button: medium hold ({press_duration:.2f}s) - recording 30s")
+                _start_recording(30)
+            else:
+                # Long hold: record 60s video
+                print(f"[PiCam] Button: long hold ({press_duration:.2f}s) - recording 60s")
+                _start_recording(60)
+            
+            # Debounce
+            time.sleep(0.3)
+            
+        except Exception as exc:
+            print(f"[PiCam] Button handler error: {exc}")
+            time.sleep(1)
+
+
+def _capture_photo():
+    """Internal function to capture a photo (called by button handler)"""
+    timestamp = int(time.time())
+    output_path = MEDIA_DIR / f"photo_{timestamp}.jpg"
+
+    if PICAMERA_AVAILABLE:
+        _init_camera()
+        if picam is not None:
+            picam.capture_file(str(output_path))
+            print(f"[PiCam] Photo captured: {output_path.name}")
+        else:
+            print("[PiCam] Camera not available, using placeholder")
+            output_path.write_bytes(_placeholder_frame())
+    else:
+        output_path.write_bytes(_placeholder_frame())
+    
+    _upload_blob(output_path)
+    _add_notification(f"Photo captured: {output_path.name}", "photo")
+
+
+def _start_recording(duration: int):
+    """Internal function to start video recording (called by button handler)"""
+    global recording_state
+    
+    if recording_state["is_recording"]:
+        print("[PiCam] Recording already in progress, ignoring button press")
+        return
+    
+    if not PICAMERA_AVAILABLE:
+        print("[PiCam] Camera not available for recording")
+        return
+    
+    duration = max(5, min(120, duration))  # Clamp between 5-120 seconds
+    recording_state = {
+        "is_recording": True,
+        "duration": duration,
+        "start_time": time.time()
+    }
+    
+    # Start recording in background thread
+    threading.Thread(target=_record_video, args=(duration,), daemon=True).start()
+    print(f"[PiCam] Recording started: {duration}s")
 
 
 def _get_rtc():
@@ -537,48 +610,6 @@ async def photo():
         output_path.write_bytes(_placeholder_frame())
     _upload_blob(output_path)
     return {"path": str(output_path), "timestamp": timestamp}
-
-
-@app.get("/pan_tilt")
-async def pan_tilt_status():
-    _init_servos()
-    return {
-        "enabled": SERVO_ENABLED,
-        "available": servo_kit is not None,
-        "error": servo_error,
-        "pan": servo_state.get("pan"),
-        "tilt": servo_state.get("tilt"),
-    }
-
-
-@app.post("/pan_tilt")
-async def pan_tilt_set(payload: PanTiltRequest):
-    _init_servos()
-    if servo_kit is None:
-        return JSONResponse({"error": servo_error or "Servo not available"}, status_code=400)
-    if payload.pan is not None:
-        next_pan = _clamp(payload.pan, SERVO_PAN_MIN, SERVO_PAN_MAX)
-        servo_kit.servo[SERVO_PAN_CHANNEL].angle = next_pan
-        servo_state["pan"] = next_pan
-    if payload.tilt is not None:
-        next_tilt = _clamp(payload.tilt, SERVO_TILT_MIN, SERVO_TILT_MAX)
-        servo_kit.servo[SERVO_TILT_CHANNEL].angle = next_tilt
-        servo_state["tilt"] = next_tilt
-    return {"pan": servo_state.get("pan"), "tilt": servo_state.get("tilt")}
-
-
-@app.post("/pan_tilt/center")
-async def pan_tilt_center():
-    _init_servos()
-    if servo_kit is None:
-        return JSONResponse({"error": servo_error or "Servo not available"}, status_code=400)
-    center_pan = (SERVO_PAN_MIN + SERVO_PAN_MAX) / 2
-    center_tilt = (SERVO_TILT_MIN + SERVO_TILT_MAX) / 2
-    servo_kit.servo[SERVO_PAN_CHANNEL].angle = center_pan
-    servo_kit.servo[SERVO_TILT_CHANNEL].angle = center_tilt
-    servo_state["pan"] = center_pan
-    servo_state["tilt"] = center_tilt
-    return {"pan": servo_state.get("pan"), "tilt": servo_state.get("tilt")}
 
 
 @app.get("/events")
@@ -1121,8 +1152,15 @@ def delayed_motion_start():
     print("Starting motion detection thread")
     _start_motion_thread()
 
+# Start button handler thread
+def start_button_handler():
+    if SHUTTER_BUTTON_ENABLED:
+        print("Starting physical shutter button handler...")
+        threading.Thread(target=_button_handler, daemon=True).start()
+
 _load_push_tokens()
 threading.Thread(target=delayed_motion_start, daemon=True).start()
+threading.Thread(target=start_button_handler, daemon=True).start()
 
 if __name__ == "__main__":
     import uvicorn

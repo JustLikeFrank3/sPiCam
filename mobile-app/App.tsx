@@ -33,13 +33,6 @@ function AppContent() {
   const [recentsFilter, setRecentsFilter] = useState<'all' | 'photos' | 'videos'>('all')
   const [notifications, setNotifications] = useState<Array<{ message: string; kind?: string; timestamp: string }>>([])
   const [notificationsUpdatedAt, setNotificationsUpdatedAt] = useState<Date | null>(null)
-  const [pan, setPan] = useState(90)
-  const [tilt, setTilt] = useState(90)
-  const [panTiltStep, setPanTiltStep] = useState(10)
-  const [servoAvailable, setServoAvailable] = useState(false)
-  const [servoEnabled, setServoEnabled] = useState(false)
-  const [servoError, setServoError] = useState<string | null>(null)
-  const [panTiltCollapsed, setPanTiltCollapsed] = useState(false)
   const [motionSettingsCollapsed, setMotionSettingsCollapsed] = useState(true)
   const [motionThreshold, setMotionThreshold] = useState(4)
   const [motionMinArea, setMotionMinArea] = useState(10)
@@ -263,20 +256,6 @@ function AppContent() {
       }
     } catch (error) {
       setStatus('Failed to load Azure photos')
-    }
-  }, [baseUrl])
-
-  const fetchPanTiltStatus = useCallback(async () => {
-    try {
-      const res = await fetch(`${baseUrl}/pan_tilt`)
-      const json = await res.json()
-      if (typeof json?.pan === 'number') setPan(json.pan)
-      if (typeof json?.tilt === 'number') setTilt(json.tilt)
-      if (typeof json?.available === 'boolean') setServoAvailable(json.available)
-      if (typeof json?.enabled === 'boolean') setServoEnabled(json.enabled)
-      if (json?.error) setServoError(json.error)
-    } catch (error) {
-      setStatus('Failed to fetch servo status')
     }
   }, [baseUrl])
 
@@ -575,7 +554,6 @@ function AppContent() {
       checkConnection()
       fetchEvents()
       fetchAzure()
-      fetchPanTiltStatus()
       fetchNotifications()
       fetchMotionSettings()
 
@@ -650,7 +628,7 @@ function AppContent() {
         responseListener.current.remove()
       }
     }
-  }, [isReady, checkConnection, fetchEvents, fetchAzure, fetchPanTiltStatus, fetchNotifications, fetchMotionSettings, baseUrl, startRecording])
+  }, [isReady, checkConnection, fetchEvents, fetchAzure, fetchNotifications, fetchMotionSettings, baseUrl, startRecording])
 
   useEffect(() => {
     checkConnection()
@@ -666,45 +644,6 @@ function AppContent() {
       fetchAzure()
     } catch (error) {
       setStatus('Failed to capture photo')
-    }
-  }
-
-  const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
-
-
-  const updatePanTilt = async (deltaPan: number, deltaTilt: number) => {
-    const nextPan = clamp(pan + deltaPan, 0, 180)
-    const nextTilt = clamp(tilt + deltaTilt, 0, 180)
-    try {
-      setPan(nextPan)
-      setTilt(nextTilt)
-      const res = await fetch(`${baseUrl}/pan_tilt`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pan: nextPan, tilt: nextTilt }),
-      })
-      const json = await res.json()
-      if (json?.error) {
-        setStatus(json.error)
-        setServoError(json.error)
-      }
-    } catch (error) {
-      setStatus('Failed to move pan/tilt')
-    }
-  }
-
-  const centerPanTilt = async () => {
-    try {
-      const res = await fetch(`${baseUrl}/pan_tilt/center`, { method: 'POST' })
-      const json = await res.json()
-      if (json?.error) {
-        setStatus(json.error)
-        return
-      }
-      if (typeof json.pan === 'number') setPan(json.pan)
-      if (typeof json.tilt === 'number') setTilt(json.tilt)
-    } catch (error) {
-      setStatus('Failed to center pan/tilt')
     }
   }
 
@@ -1168,60 +1107,6 @@ function AppContent() {
           <Pressable style={styles.updateButton} onPress={updateMotionSettings}>
             <Text style={styles.updateButtonText}>Update Settings</Text>
           </Pressable>
-        </>
-      )}
-
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Pan / Tilt</Text>
-        <Pressable onPress={() => setPanTiltCollapsed(prev => !prev)}>
-          <Text style={styles.link}>{panTiltCollapsed ? 'Show' : 'Hide'}</Text>
-        </Pressable>
-      </View>
-
-      {!panTiltCollapsed && (
-        <>
-          <Text style={styles.controlValue}>Pan {Math.round(pan)}° · Tilt {Math.round(tilt)}°</Text>
-          <View style={styles.controlStatusRow}>
-            <Text style={styles.controlStatusText}>
-              {servoEnabled ? 'Servo enabled' : 'Servo disabled'} · {servoAvailable ? 'Available' : 'Unavailable'}
-            </Text>
-            {servoError ? <Text style={styles.controlStatusError}>{servoError}</Text> : null}
-          </View>
-
-          <View style={styles.stepRow}>
-            <Text style={styles.controlValue}>Step</Text>
-            {[5, 10, 20].map(step => (
-              <Pressable
-                key={step}
-                style={step === panTiltStep ? styles.stepButtonActive : styles.stepButton}
-                onPress={() => setPanTiltStep(step)}
-              >
-                <Text style={step === panTiltStep ? styles.stepButtonActiveText : styles.stepButtonText}>
-                  {step}°
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-
-          <View style={styles.controlPad}>
-            <Pressable style={styles.controlButton} onPress={() => updatePanTilt(0, -panTiltStep)}>
-              <Text style={styles.controlButtonText}>↑</Text>
-            </Pressable>
-            <View style={styles.controlRow}>
-              <Pressable style={styles.controlButton} onPress={() => updatePanTilt(panTiltStep, 0)}>
-                <Text style={styles.controlButtonText}>←</Text>
-              </Pressable>
-              <Pressable style={styles.controlButtonAccent} onPress={centerPanTilt}>
-                <Text style={styles.controlButtonAccentText}>Center</Text>
-              </Pressable>
-              <Pressable style={styles.controlButton} onPress={() => updatePanTilt(-panTiltStep, 0)}>
-                <Text style={styles.controlButtonText}>→</Text>
-              </Pressable>
-            </View>
-            <Pressable style={styles.controlButton} onPress={() => updatePanTilt(0, panTiltStep)}>
-              <Text style={styles.controlButtonText}>↓</Text>
-            </Pressable>
-          </View>
         </>
       )}
 

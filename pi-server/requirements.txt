@@ -4,9 +4,9 @@ pillow
 numpy
 picamera2
 azure-storage-blob
-adafruit-circuitpython-servokit
 adafruit-circuitpython-ds3231
 adafruit-blinka
 smbus2
 httpx
 python-dotenv
+RPi.GPIO
