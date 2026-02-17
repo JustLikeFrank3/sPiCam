@@ -174,8 +174,13 @@ def _button_handler():
     print("[PiCam] Button handler thread started")
     while True:
         try:
-            # Wait for button press (falling edge, button connects to GND)
-            GPIO.wait_for_edge(SHUTTER_BUTTON_GPIO, GPIO.FALLING)
+            # Wait for button press with timeout (falling edge, button connects to GND)
+            channel = GPIO.wait_for_edge(SHUTTER_BUTTON_GPIO, GPIO.FALLING, timeout=1000)
+            
+            if channel is None:
+                # Timeout, no button press detected
+                continue
+            
             press_start = time.time()
             
             # Wait for button release
