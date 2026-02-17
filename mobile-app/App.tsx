@@ -27,6 +27,7 @@ function AppContent() {
   const [status, setStatus] = useState('')
   const [events, setEvents] = useState<Array<{ name: string; last_modified?: string | null }>>([])
   const [selectedMedia, setSelectedMedia] = useState<string | null>(null)
+  const [mediaLoading, setMediaLoading] = useState(false)
   const [galleryMode, setGalleryMode] = useState<'recents' | null>(null)
   const [recentsFilter, setRecentsFilter] = useState<'all' | 'photos' | 'videos'>('all')
   const [notifications, setNotifications] = useState<Array<{ message: string; kind?: string; timestamp: string }>>([])
@@ -634,7 +635,7 @@ function AppContent() {
       <SafeAreaView style={[styles.container, { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000 }]}>
         <View style={styles.previewScreen}>
           <View style={styles.sectionHeader}>
-            <Pressable onPress={() => setSelectedMedia(null)}>
+            <Pressable onPress={() => { setSelectedMedia(null); setMediaLoading(false); }}>
               <Text style={styles.link}>Back</Text>
             </Pressable>
             <Text style={styles.sectionTitle}>{isVideo ? 'Video' : 'Preview'}</Text>
@@ -644,18 +645,39 @@ function AppContent() {
             {isRawVideo ? (
               <Text style={styles.eventThumbLabel}>Raw .h264 not playable</Text>
             ) : isVideo ? (
-              <WebView
-                source={{ html: videoHtml }}
-                style={{ flex: 1, backgroundColor: '#000' }}
-                allowsInlineMediaPlayback
-                mediaPlaybackRequiresUserAction={false}
-              />
+              <>
+                {mediaLoading && (
+                  <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', zIndex: 1 }}>
+                    <ActivityIndicator size="large" color="#d1b06b" />
+                    <Text style={[styles.eventThumbLabel, { marginTop: 12 }]}>Loading video...</Text>
+                  </View>
+                )}
+                <WebView
+                  source={{ html: videoHtml }}
+                  style={{ flex: 1, backgroundColor: '#000' }}
+                  allowsInlineMediaPlayback
+                  mediaPlaybackRequiresUserAction={false}
+                  onLoadStart={() => setMediaLoading(true)}
+                  onLoad={() => setMediaLoading(false)}
+                  onLoadEnd={() => setMediaLoading(false)}
+                />
+              </>
             ) : (
-              <Image 
-                source={{ uri: getAzureMediaUrl(selectedMedia) }} 
-                style={styles.previewImage}
-                resizeMode="contain"
-              />
+              <>
+                {mediaLoading && (
+                  <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', zIndex: 1 }}>
+                    <ActivityIndicator size="large" color="#d1b06b" />
+                    <Text style={[styles.eventThumbLabel, { marginTop: 12 }]}>Loading image...</Text>
+                  </View>
+                )}
+                <Image 
+                  source={{ uri: getAzureMediaUrl(selectedMedia) }} 
+                  style={styles.previewImage}
+                  resizeMode="contain"
+                  onLoadStart={() => setMediaLoading(true)}
+                  onLoadEnd={() => setMediaLoading(false)}
+                />
+              </>
             )}
           </View>
           <View style={styles.mediaActions}>

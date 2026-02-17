@@ -52,6 +52,15 @@ else
 fi
 
 echo ""
+echo -e "${YELLOW}Installing dependencies on Pi...${NC}"
+
+ssh "${PI_USER}@${PI_HOST}" << 'ENDSSH'
+    cd ~/pi-server
+    source .venv/bin/activate
+    pip install -r requirements.txt
+ENDSSH
+
+echo ""
 echo -e "${YELLOW}Restarting service on Pi...${NC}"
 
 ssh "${PI_USER}@${PI_HOST}" << 'ENDSSH'
