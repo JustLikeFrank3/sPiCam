@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react'
-import { StyleSheet, Text, View, Pressable, TextInput, FlatList, Platform, Image, ScrollView, Alert, AppState, Modal, Linking } from 'react-native'
+import { StyleSheet, Text, View, Pressable, TextInput, FlatList, Platform, Image, ScrollView, Alert, AppState, Modal, Linking, ActivityIndicator } from 'react-native'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import Constants from 'expo-constants'
 import { WebView } from 'react-native-webview'
@@ -8,12 +8,16 @@ import * as FileSystem from 'expo-file-system/legacy'
 import * as Sharing from 'expo-sharing'
 import * as Notifications from 'expo-notifications'
 import * as Device from 'expo-device'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import SplashScreen from './SplashScreen'
 
 function AppContent() {
+  const [isReady, setIsReady] = useState(false)
+  const [hasUserDismissedHelp, setHasUserDismissedHelp] = useState(false)
+  const [isRetrying, setIsRetrying] = useState(false)
   const log = (...args: Array<unknown>) => {
     console.log('[SPICAM]', ...args)
   }
-  const logo = require('./assets/spicam_icon_1024.png')
   const defaultBaseUrl = Constants.isDevice
     ? 'http://100.86.177.103:8000'
     : Platform.OS === 'android'
@@ -60,6 +64,13 @@ function AppContent() {
       isDevice: Constants.isDevice,
       baseUrl
     })
+    
+    // Show splash screen for 5 seconds to allow Tailscale and network to initialize
+    const splashTimer = setTimeout(() => {
+      setIsReady(true)
+    }, 5000)
+    
+    return () => clearTimeout(splashTimer)
   }, [baseUrl])
 
   const setMotionState = useCallback(async (enabled: boolean) => {
@@ -313,28 +324,79 @@ function AppContent() {
   }, [baseUrl, motionThreshold, motionMinArea, notificationCooldown])
 
   const checkConnection = useCallback(async () => {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 5000)
+    
     try {
       setConnectionStatus('checking')
       const res = await fetch(`${baseUrl}/status`, {
         method: 'GET',
-        signal: AbortSignal.timeout(5000)
+        signal: controller.signal
       })
+      clearTimeout(timeoutId)
+      
       if (res.ok) {
         setConnectionStatus('connected')
         setShowConnectionHelp(false)
+        // Clear dismissal on successful connection
+        await AsyncStorage.removeItem('connectionHelpDismissed')
       } else {
         setConnectionStatus('failed')
-        setShowConnectionHelp(true)
+        // Only show if user hasn't dismissed it
+        if (!hasUserDismissedHelp) {
+          setShowConnectionHelp(true)
+        }
       }
     } catch (error) {
+      clearTimeout(timeoutId)
       setConnectionStatus('failed')
-      setShowConnectionHelp(true)
+      // Only show if user hasn't dismissed it
+      if (!hasUserDismissedHelp) {
+        setShowConnectionHelp(true)
+      }
     }
-  }, [baseUrl])
+  }, [baseUrl, hasUserDismissedHelp])
 
-  const retryConnection = useCallback(() => {
-    checkConnection()
-  }, [checkConnection])
+  const retryConnection = useCallback(async () => {
+    console.log('[DEBUG] Retry button pressed! isRetrying:', isRetrying)
+    setIsRetrying(true)
+    
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 5000)
+    
+    // Try connection (keep modal open during retry)
+    try {
+      console.log('[DEBUG] Attempting fetch to:', `${baseUrl}/status`)
+      const res = await fetch(`${baseUrl}/status`, {
+        method: 'GET',
+        signal: controller.signal
+      })
+      clearTimeout(timeoutId)
+      
+      console.log('[DEBUG] Fetch response ok:', res.ok)
+      if (res.ok) {
+        // Success! Remember this and don't show warning again
+        setConnectionStatus('connected')
+        setShowConnectionHelp(false)
+        console.log('[DEBUG] Saving to AsyncStorage...')
+        await AsyncStorage.setItem('connectionHelpDismissed', 'true')
+        setHasUserDismissedHelp(true)
+        console.log('[DEBUG] Connection successful, modal dismissed')
+      } else {
+        console.log('[DEBUG] Connection failed - response not ok')
+        setConnectionStatus('failed')
+        // Keep modal open to show it failed
+      }
+    } catch (error) {
+      clearTimeout(timeoutId)
+      console.log('[DEBUG] Connection error:', error)
+      setConnectionStatus('failed')
+      // Keep modal open to show it failed
+    }
+    
+    setIsRetrying(false)
+    console.log('[DEBUG] Retry complete, isRetrying set to false')
+  }, [baseUrl])
 
   const useCustomIp = useCallback(() => {
     if (customIp.trim()) {
@@ -492,18 +554,39 @@ function AppContent() {
 
 
   useEffect(() => {
-    checkConnection()
-    fetchEvents()
-    fetchAzure()
-    fetchPanTiltStatus()
-    fetchNotifications()
-    fetchMotionSettings()
+    // Wait for splash screen to finish before initializing
+    // This gives Tailscale and the network time to establish
+    if (!isReady) return
+    
+    const initializeApp = async () => {
+      // Load dismissal state FIRST
+      console.log('[DEBUG] Loading AsyncStorage dismissal state...')
+      const dismissed = await AsyncStorage.getItem('connectionHelpDismissed')
+      console.log('[DEBUG] AsyncStorage value:', dismissed)
+      if (dismissed === 'true') {
+        console.log('[DEBUG] User previously dismissed, setting hasUserDismissedHelp=true')
+        setHasUserDismissedHelp(true)
+      } else {
+        console.log('[DEBUG] No dismissal found, will show modal if connection fails')
+      }
+      
+      // THEN check connection (this will respect hasUserDismissedHelp)
+      console.log('[DEBUG] Checking connection...')
+      checkConnection()
+      fetchEvents()
+      fetchAzure()
+      fetchPanTiltStatus()
+      fetchNotifications()
+      fetchMotionSettings()
 
-    if (!hasAttemptedAutoRegister.current) {
-      hasAttemptedAutoRegister.current = true
-      registerForPushNotifications({ silent: true })
+      if (!hasAttemptedAutoRegister.current) {
+        hasAttemptedAutoRegister.current = true
+        registerForPushNotifications({ silent: true })
+      }
     }
-
+    
+    initializeApp()
+    
     // Configure notification handlers
     if (typeof Notifications.setNotificationHandler === 'function') {
       Notifications.setNotificationHandler({
@@ -567,7 +650,7 @@ function AppContent() {
         responseListener.current.remove()
       }
     }
-  }, [checkConnection, fetchEvents, fetchAzure, fetchPanTiltStatus, fetchNotifications, fetchMotionSettings, baseUrl, startRecording])
+  }, [isReady, checkConnection, fetchEvents, fetchAzure, fetchPanTiltStatus, fetchNotifications, fetchMotionSettings, baseUrl, startRecording])
 
   useEffect(() => {
     checkConnection()
@@ -871,6 +954,10 @@ function AppContent() {
     )
   }
 
+  if (!isReady) {
+    return <SplashScreen />
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <Modal
@@ -929,18 +1016,52 @@ function AppContent() {
               </Pressable>
             </View>
 
+            {connectionStatus === 'checking' && (
+              <Text style={[styles.modalText, { textAlign: 'center', color: '#d1b06b' }]}>
+                Checking connection...
+              </Text>
+            )}
+            {connectionStatus === 'failed' && !isRetrying && (
+              <Text style={[styles.modalText, { textAlign: 'center', color: '#ff6b6b' }]}>
+                Connection failed. Try again or enter custom IP.
+              </Text>
+            )}
+            {connectionStatus === 'connected' && (
+              <Text style={[styles.modalText, { textAlign: 'center', color: '#51cf66' }]}>
+                ✓ Connected!
+              </Text>
+            )}
+
             <Pressable 
-              style={styles.modalButtonSecondary}
+              style={[
+                styles.modalButtonSecondary,
+                isRetrying && { opacity: 0.5 }
+              ]}
               onPress={retryConnection}
+              disabled={isRetrying}
             >
-              <Text style={styles.modalButtonSecondaryText}>Retry Connection</Text>
+              {isRetrying ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <ActivityIndicator color="#d1b06b" size="small" />
+                  <Text style={[styles.modalButtonSecondaryText, { marginLeft: 8 }]}>Connecting...</Text>
+                </View>
+              ) : (
+                <Text style={styles.modalButtonSecondaryText}>Retry Connection</Text>
+              )}
             </Pressable>
 
             <Pressable 
               style={styles.modalButtonSecondary}
-              onPress={() => setShowConnectionHelp(false)}
+              onPress={async () => {
+                console.log('[DEBUG] Dismiss button pressed!')
+                await AsyncStorage.setItem('connectionHelpDismissed', 'true')
+                console.log('[DEBUG] Saved to AsyncStorage')
+                setHasUserDismissedHelp(true)
+                setShowConnectionHelp(false)
+                console.log('[DEBUG] Modal dismissed')
+              }}
             >
-              <Text style={styles.modalButtonSecondaryText}>Dismiss</Text>
+              <Text style={styles.modalButtonSecondaryText}>Dismiss (Don't Show Again)</Text>
             </Pressable>
           </ScrollView>
         </SafeAreaView>
@@ -948,7 +1069,7 @@ function AppContent() {
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <Image source={logo} style={styles.logo} resizeMode="contain" />
+          <Image source={require('./assets/spicam_icons/icon_512.png')} style={styles.logo} resizeMode="contain" />
           <Text style={styles.title}>sPiCam</Text>
         </View>
 
