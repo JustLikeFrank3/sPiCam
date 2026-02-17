@@ -240,6 +240,13 @@ def _capture_photo():
     
     _upload_blob(output_path)
     _add_notification(f"Photo captured: {output_path.name}", "photo")
+    
+    # Send push notification
+    threading.Thread(target=_send_push_notification_sync, args=(
+        "Photo Captured",
+        f"Photo captured: {output_path.name}",
+        {"type": "photo_captured", "filename": output_path.name}
+    ), daemon=True).start()
 
 
 def _start_recording(duration: int):
@@ -264,6 +271,14 @@ def _start_recording(duration: int):
     # Start recording in background thread
     threading.Thread(target=_record_video, args=(duration,), daemon=True).start()
     print(f"[PiCam] Recording started: {duration}s")
+    
+    # Send push notification
+    _add_notification(f"Recording started: {duration}s video", "recording")
+    threading.Thread(target=_send_push_notification_sync, args=(
+        "Recording Started",
+        f"Recording {duration}s video...",
+        {"type": "recording_started", "duration": duration}
+    ), daemon=True).start()
 
 
 def _get_rtc():
