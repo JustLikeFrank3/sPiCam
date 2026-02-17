@@ -152,6 +152,12 @@ def _init_button_gpio():
         return
     try:
         import RPi.GPIO as GPIO
+        # Clean up any previous GPIO state
+        GPIO.setwarnings(False)
+        try:
+            GPIO.cleanup(SHUTTER_BUTTON_GPIO)
+        except:
+            pass
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(SHUTTER_BUTTON_GPIO, GPIO.IN, pull_up_down=GPIO.PUD_UP)
         button_gpio_initialized = True
@@ -181,6 +187,7 @@ def _button_handler():
                 # Timeout, no button press detected
                 continue
             
+            print(f"[PiCam] Button press detected on GPIO {channel}")
             press_start = time.time()
             
             # Wait for button release
@@ -188,6 +195,7 @@ def _button_handler():
                 time.sleep(0.05)
             
             press_duration = time.time() - press_start
+            print(f"[PiCam] Button released after {press_duration:.2f}s")
             
             if press_duration < 0.5:
                 # Short press: capture photo
@@ -206,7 +214,9 @@ def _button_handler():
             time.sleep(0.3)
             
         except Exception as exc:
-            print(f"[PiCam] Button handler error: {exc}")
+            import traceback
+            print(f"[PiCam] Button handler error: {type(exc).__name__}: {exc}")
+            print(f"[PiCam] Traceback: {traceback.format_exc()}")
             time.sleep(1)
 
 
