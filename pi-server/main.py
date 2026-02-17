@@ -177,41 +177,43 @@ def _button_handler():
     
     import RPi.GPIO as GPIO
     
-    print("[PiCam] Button handler thread started")
+    print("[PiCam] Button handler thread started (polling mode)")
+    last_state = GPIO.HIGH
+    
     while True:
         try:
-            # Wait for button press with timeout (falling edge, button connects to GND)
-            channel = GPIO.wait_for_edge(SHUTTER_BUTTON_GPIO, GPIO.FALLING, timeout=1000)
+            current_state = GPIO.input(SHUTTER_BUTTON_GPIO)
             
-            if channel is None:
-                # Timeout, no button press detected
-                continue
+            # Detect button press (HIGH -> LOW transition)
+            if last_state == GPIO.HIGH and current_state == GPIO.LOW:
+                print(f"[PiCam] Button press detected on GPIO {SHUTTER_BUTTON_GPIO}")
+                press_start = time.time()
+                
+                # Wait for button release
+                while GPIO.input(SHUTTER_BUTTON_GPIO) == GPIO.LOW:
+                    time.sleep(0.05)
+                
+                press_duration = time.time() - press_start
+                print(f"[PiCam] Button released after {press_duration:.2f}s")
+                
+                if press_duration < 0.5:
+                    # Short press: capture photo
+                    print(f"[PiCam] Button: short press ({press_duration:.2f}s) - capturing photo")
+                    _capture_photo()
+                elif press_duration < 2.0:
+                    # Medium hold: record 30s video
+                    print(f"[PiCam] Button: medium hold ({press_duration:.2f}s) - recording 30s")
+                    _start_recording(30)
+                else:
+                    # Long hold: record 60s video
+                    print(f"[PiCam] Button: long hold ({press_duration:.2f}s) - recording 60s")
+                    _start_recording(60)
+                
+                # Debounce
+                time.sleep(0.3)
             
-            print(f"[PiCam] Button press detected on GPIO {channel}")
-            press_start = time.time()
-            
-            # Wait for button release
-            while GPIO.input(SHUTTER_BUTTON_GPIO) == GPIO.LOW:
-                time.sleep(0.05)
-            
-            press_duration = time.time() - press_start
-            print(f"[PiCam] Button released after {press_duration:.2f}s")
-            
-            if press_duration < 0.5:
-                # Short press: capture photo
-                print(f"[PiCam] Button: short press ({press_duration:.2f}s) - capturing photo")
-                _capture_photo()
-            elif press_duration < 2.0:
-                # Medium hold: record 30s video
-                print(f"[PiCam] Button: medium hold ({press_duration:.2f}s) - recording 30s")
-                _start_recording(30)
-            else:
-                # Long hold: record 60s video
-                print(f"[PiCam] Button: long hold ({press_duration:.2f}s) - recording 60s")
-                _start_recording(60)
-            
-            # Debounce
-            time.sleep(0.3)
+            last_state = current_state
+            time.sleep(0.01)  # Poll every 10ms
             
         except Exception as exc:
             import traceback
