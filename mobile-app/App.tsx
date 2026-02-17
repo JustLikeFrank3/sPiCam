@@ -25,7 +25,7 @@ function AppContent() {
       : 'http://100.86.177.103:8000'
   const [baseUrl, setBaseUrl] = useState(defaultBaseUrl)
   const [status, setStatus] = useState('')
-  const [events, setEvents] = useState<Array<{ filename: string; path: string; timestamp: number }>>([])
+  const [events, setEvents] = useState<Array<{ name: string; last_modified?: string | null }>>([])
   const [selectedMedia, setSelectedMedia] = useState<string | null>(null)
   const [galleryMode, setGalleryMode] = useState<'recents' | null>(null)
   const [recentsFilter, setRecentsFilter] = useState<'all' | 'photos' | 'videos'>('all')
@@ -116,7 +116,7 @@ function AppContent() {
   const isRawVideoFile = (name: string) => /\.h264$/i.test(name)
   const canSaveToPhotos = (name: string) => /(\.jpe?g|\.png|\.mp4|\.mov)$/i.test(name)
   const getVideoMimeType = (name: string) => (name.toLowerCase().endsWith('.mp4') ? 'video/mp4' : 'video/x-msvideo')
-  const getLocalMediaUrl = (name: string) => `${baseUrl}/media/${encodeURIComponent(name)}`
+  const getAzureMediaUrl = (name: string) => `${baseUrl}/azure/media/${encodeURIComponent(name)}`
 
   const saveToPhotos = async (filename: string) => {
     try {
@@ -135,7 +135,7 @@ function AppContent() {
 
       const fileUri = `${FileSystem.documentDirectory!}${filename}`
       const downloadResult = await FileSystem.downloadAsync(
-        getLocalMediaUrl(filename),
+        getAzureMediaUrl(filename),
         fileUri
       )
 
@@ -154,7 +154,7 @@ function AppContent() {
     try {
       const fileUri = `${FileSystem.cacheDirectory!}${filename}`
       const downloadResult = await FileSystem.downloadAsync(
-        getLocalMediaUrl(filename),
+        getAzureMediaUrl(filename),
         fileUri
       )
 
@@ -178,7 +178,7 @@ function AppContent() {
 
   const fetchEvents = useCallback(async () => {
     try {
-      const res = await fetch(`${baseUrl}/events`)
+      const res = await fetch(`${baseUrl}/azure/blobs`)
       const json = await res.json()
       if (Array.isArray(json)) {
         setEvents(json)
@@ -576,24 +576,24 @@ function AppContent() {
     }
   }
 
-  const renderEvent = ({ item }: { item: { filename: string; path: string; timestamp: number } }) => {
-    const isVideo = isVideoFile(item.filename)
-    const isRawVideo = isRawVideoFile(item.filename)
+  const renderEvent = ({ item }: { item: { name: string; last_modified?: string | null } }) => {
+    const isVideo = isVideoFile(item.name)
+    const isRawVideo = isRawVideoFile(item.name)
     return (
-      <Pressable style={styles.eventItem} onPress={() => setSelectedMedia(item.filename)}>
+      <Pressable style={styles.eventItem} onPress={() => setSelectedMedia(item.name)}>
         <View style={styles.eventRow}>
           <View style={styles.eventThumb}>
-            {isPhotoFile(item.filename) ? (
-              <Image source={{ uri: getLocalMediaUrl(item.filename) }} style={styles.eventThumbImage} />
+            {isPhotoFile(item.name) ? (
+              <Image source={{ uri: getAzureMediaUrl(item.name) }} style={styles.eventThumbImage} />
             ) : (
               <Text style={styles.eventThumbLabel}>{isRawVideo ? 'RAW' : isVideo ? 'VIDEO' : 'FILE'}</Text>
             )}
           </View>
           <View style={styles.eventMeta}>
             <Text style={styles.eventTitle} numberOfLines={1}>
-              {item.filename}
+              {item.name}
             </Text>
-            <Text style={styles.eventTime}>{new Date(item.timestamp * 1000).toLocaleString()}</Text>
+            <Text style={styles.eventTime}>{item.last_modified ? new Date(item.last_modified).toLocaleString() : 'Unknown'}</Text>
             <View style={styles.eventPillRow}>
               <View style={styles.eventPill}>
                 <Text style={styles.eventPillText}>{isRawVideo ? 'Raw' : isVideo ? 'Video' : 'Photo'}</Text>
@@ -623,7 +623,7 @@ function AppContent() {
         </head>
         <body>
           <video controls autoplay style="width: 100%;">
-            <source src="${getLocalMediaUrl(selectedMedia)}" type="${getVideoMimeType(selectedMedia)}">
+            <source src="${getAzureMediaUrl(selectedMedia)}" type="${getVideoMimeType(selectedMedia)}">
             Your browser does not support video playback.
           </video>
         </body>
@@ -652,7 +652,7 @@ function AppContent() {
               />
             ) : (
               <Image 
-                source={{ uri: getLocalMediaUrl(selectedMedia) }} 
+                source={{ uri: getAzureMediaUrl(selectedMedia) }} 
                 style={styles.previewImage}
                 resizeMode="contain"
               />
@@ -674,8 +674,8 @@ function AppContent() {
   if (galleryMode) {
     const filteredEvents = events.filter(item => {
       if (recentsFilter === 'all') return true
-      if (recentsFilter === 'photos') return isPhotoFile(item.filename)
-      return isVideoFile(item.filename)
+      if (recentsFilter === 'photos') return isPhotoFile(item.name)
+      return isVideoFile(item.name)
     })
     return (
       <SafeAreaView style={styles.container}>
@@ -705,7 +705,7 @@ function AppContent() {
 
         <FlatList
           data={filteredEvents}
-          keyExtractor={item => item.filename}
+          keyExtractor={item => item.name}
           renderItem={renderEvent}
           style={styles.eventsListFull}
           contentContainerStyle={styles.eventsContent}

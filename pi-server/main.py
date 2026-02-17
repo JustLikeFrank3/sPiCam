@@ -744,7 +744,7 @@ async def get_media(filename: str):
 
 
 @app.get("/azure/blobs")
-async def list_azure_blobs(limit: int = 25):
+async def list_azure_blobs(limit: int = 10000):
     if container_client is None:
         return JSONResponse({"error": "Azure not configured"}, status_code=400)
     blobs = []
