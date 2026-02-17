@@ -48,6 +48,8 @@
     <string>sPiCam needs access to save captured videos and photos to your photo library.</string>
     <key>NSPhotoLibraryUsageDescription</key>
     <string>sPiCam needs access to save captured videos and photos to your photo library.</string>
+    <key>NSUserNotificationsUsageDescription</key>
+    <string>sPiCam needs notification access to alert you when motion is detected.</string>
     <key>RCTNewArchEnabled</key>
     <true/>
     <key>UILaunchStoryboardName</key>
