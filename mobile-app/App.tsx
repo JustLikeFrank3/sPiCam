@@ -27,9 +27,7 @@ function AppContent() {
   const [status, setStatus] = useState('')
   const [events, setEvents] = useState<Array<{ filename: string; path: string; timestamp: number }>>([])
   const [selectedMedia, setSelectedMedia] = useState<string | null>(null)
-  const [azureBlobs, setAzureBlobs] = useState<Array<{ name: string; last_modified?: string | null }>>([])
-  const [selectedAzure, setSelectedAzure] = useState<string | null>(null)
-  const [galleryMode, setGalleryMode] = useState<'recents' | 'cloud' | null>(null)
+  const [galleryMode, setGalleryMode] = useState<'recents' | null>(null)
   const [recentsFilter, setRecentsFilter] = useState<'all' | 'photos' | 'videos'>('all')
   const [notifications, setNotifications] = useState<Array<{ message: string; kind?: string; timestamp: string }>>([])
   const [notificationsUpdatedAt, setNotificationsUpdatedAt] = useState<Date | null>(null)
@@ -119,7 +117,6 @@ function AppContent() {
   const canSaveToPhotos = (name: string) => /(\.jpe?g|\.png|\.mp4|\.mov)$/i.test(name)
   const getVideoMimeType = (name: string) => (name.toLowerCase().endsWith('.mp4') ? 'video/mp4' : 'video/x-msvideo')
   const getLocalMediaUrl = (name: string) => `${baseUrl}/media/${encodeURIComponent(name)}`
-  const getAzureMediaUrl = (name: string) => `${baseUrl}/azure/media/${encodeURIComponent(name)}`
 
   const saveToPhotos = async (filename: string) => {
     try {
@@ -177,61 +174,7 @@ function AppContent() {
     }
   }
 
-  const saveAzureMedia = async (blobName: string) => {
-    try {
-      if (!canSaveToPhotos(blobName)) {
-        const message = isRawVideoFile(blobName)
-          ? 'This recording is raw .h264. Install ffmpeg on the Pi to generate .mp4 files before saving.'
-          : 'This file type cannot be saved to Photos. Use .jpg/.png for photos or .mp4 for video.'
-        Alert.alert('Save Failed', message)
-        return
-      }
-      const { status } = await MediaLibrary.requestPermissionsAsync()
-      if (status !== 'granted') {
-        Alert.alert('Permission Required', 'Please grant photo library access to save media.')
-        return
-      }
 
-      const fileUri = `${FileSystem.documentDirectory!}${blobName}`
-      const downloadResult = await FileSystem.downloadAsync(
-        getAzureMediaUrl(blobName),
-        fileUri
-      )
-
-      if (downloadResult.status !== 200) {
-        throw new Error('Download failed')
-      }
-
-      const asset = await MediaLibrary.createAssetAsync(downloadResult.uri)
-      Alert.alert('Success', `Saved to Photos: ${blobName}`)
-    } catch (error) {
-      Alert.alert('Save Failed', error instanceof Error ? error.message : 'Unknown error')
-    }
-  }
-
-  const shareAzureMedia = async (blobName: string) => {
-    try {
-      const fileUri = `${FileSystem.cacheDirectory!}${blobName}`
-      const downloadResult = await FileSystem.downloadAsync(
-        getAzureMediaUrl(blobName),
-        fileUri
-      )
-
-      if (downloadResult.status !== 200) {
-        throw new Error('Download failed')
-      }
-
-      const canShare = await Sharing.isAvailableAsync()
-      if (!canShare) {
-        Alert.alert('Sharing Not Available', 'Sharing is not available on this device')
-        return
-      }
-
-      await Sharing.shareAsync(downloadResult.uri)
-    } catch (error) {
-      Alert.alert('Share Failed', error instanceof Error ? error.message : 'Unknown error')
-    }
-  }
 
   const fetchEvents = useCallback(async () => {
     try {
@@ -245,19 +188,7 @@ function AppContent() {
     }
   }, [baseUrl])
 
-  const fetchAzure = useCallback(async () => {
-    try {
-      const res = await fetch(`${baseUrl}/azure/blobs`)
-      const json = await res.json()
-      if (Array.isArray(json)) {
-        setAzureBlobs(json)
-      } else if (json?.error) {
-        setStatus(json.error)
-      }
-    } catch (error) {
-      setStatus('Failed to load Azure photos')
-    }
-  }, [baseUrl])
+
 
   const fetchNotifications = useCallback(async () => {
     try {
@@ -553,7 +484,6 @@ function AppContent() {
       console.log('[DEBUG] Checking connection...')
       checkConnection()
       fetchEvents()
-      fetchAzure()
       fetchNotifications()
       fetchMotionSettings()
 
@@ -628,7 +558,7 @@ function AppContent() {
         responseListener.current.remove()
       }
     }
-  }, [isReady, checkConnection, fetchEvents, fetchAzure, fetchNotifications, fetchMotionSettings, baseUrl, startRecording])
+  }, [isReady, checkConnection, fetchEvents, fetchNotifications, fetchMotionSettings, baseUrl, startRecording])
 
   useEffect(() => {
     checkConnection()
@@ -641,7 +571,6 @@ function AppContent() {
       const json = await res.json()
       setStatus(`Saved: ${json.filename ?? json.path}`)
       fetchEvents()
-      fetchAzure()
     } catch (error) {
       setStatus('Failed to capture photo')
     }
@@ -677,37 +606,7 @@ function AppContent() {
     )
   }
 
-  const renderAzure = ({ item }: { item: { name: string; last_modified?: string | null } }) => {
-    const isVideo = isVideoFile(item.name)
-    const isRawVideo = isRawVideoFile(item.name)
-    return (
-      <Pressable style={styles.eventItem} onPress={() => setSelectedAzure(item.name)}>
-        <View style={styles.eventRow}>
-          <View style={styles.eventThumb}>
-            {isPhotoFile(item.name) ? (
-              <Image source={{ uri: getAzureMediaUrl(item.name) }} style={styles.eventThumbImage} />
-            ) : (
-              <Text style={styles.eventThumbLabel}>{isRawVideo ? 'RAW' : isVideo ? 'VIDEO' : 'FILE'}</Text>
-            )}
-          </View>
-          <View style={styles.eventMeta}>
-            <Text style={styles.eventTitle} numberOfLines={1}>
-              {item.name}
-            </Text>
-            {item.last_modified ? (
-              <Text style={styles.eventTime}>{new Date(item.last_modified).toLocaleString()}</Text>
-            ) : null}
-            <View style={styles.eventPillRow}>
-              <View style={styles.eventPill}>
-                <Text style={styles.eventPillText}>{isRawVideo ? 'Raw' : isVideo ? 'Video' : 'Photo'}</Text>
-              </View>
-            </View>
-          </View>
-          <Text style={styles.eventChevron}>›</Text>
-        </View>
-      </Pressable>
-    )
-  }
+
 
   if (selectedMedia) {
     const isVideo = isVideoFile(selectedMedia)
@@ -772,71 +671,7 @@ function AppContent() {
     )
   }
 
-  if (selectedAzure) {
-    const isVideo = isVideoFile(selectedAzure)
-    const isRawVideo = isRawVideoFile(selectedAzure)
-    const cloudVideoHtml = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-          <style>
-            body { margin: 0; padding: 0; background: #000; display: flex; align-items: center; justify-content: center; height: 100vh; }
-            video { max-width: 100%; max-height: 100%; }
-          </style>
-        </head>
-        <body>
-          <video controls autoplay style="width: 100%;">
-            <source src="${getAzureMediaUrl(selectedAzure)}" type="${getVideoMimeType(selectedAzure)}">
-            Your browser does not support video playback.
-          </video>
-        </body>
-      </html>
-    `
-
-    return (
-      <SafeAreaView style={[styles.container, { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000 }]}>
-        <View style={styles.previewScreen}>
-          <View style={styles.sectionHeader}>
-            <Pressable onPress={() => setSelectedAzure(null)}>
-              <Text style={styles.link}>Back</Text>
-            </Pressable>
-            <Text style={styles.sectionTitle}>Cloud Preview</Text>
-            <View style={{ width: 48 }} />
-          </View>
-          <View style={styles.previewContainer}>
-            {isRawVideo ? (
-              <Text style={styles.eventThumbLabel}>Raw .h264 not playable</Text>
-            ) : isVideo ? (
-              <WebView
-                source={{ html: cloudVideoHtml }}
-                style={{ flex: 1, backgroundColor: '#000' }}
-                allowsInlineMediaPlayback
-                mediaPlaybackRequiresUserAction={false}
-              />
-            ) : (
-              <Image 
-                source={{ uri: getAzureMediaUrl(selectedAzure) }} 
-                style={styles.previewImage}
-                resizeMode="contain"
-              />
-            )}
-          </View>
-          <View style={styles.mediaActions}>
-            <Pressable style={styles.actionButton} onPress={() => saveAzureMedia(selectedAzure)}>
-              <Text style={styles.actionButtonText}>Save to Photos</Text>
-            </Pressable>
-            <Pressable style={[styles.actionButton, styles.actionButtonSecondary]} onPress={() => shareAzureMedia(selectedAzure)}>
-              <Text style={styles.actionButtonSecondaryText}>Share</Text>
-            </Pressable>
-          </View>
-        </View>
-      </SafeAreaView>
-    )
-  }
-
   if (galleryMode) {
-    const isRecents = galleryMode === 'recents'
     const filteredEvents = events.filter(item => {
       if (recentsFilter === 'all') return true
       if (recentsFilter === 'photos') return isPhotoFile(item.filename)
@@ -849,13 +684,12 @@ function AppContent() {
             <Text style={styles.link}>Back</Text>
           </Pressable>
           <Text style={styles.sectionTitle}>
-            {isRecents ? `Recent Events (${filteredEvents.length})` : `Cloud Photos (${azureBlobs.length})`}
+            Recent Events ({filteredEvents.length})
           </Text>
           <View style={{ width: 48 }} />
         </View>
 
-        {isRecents && (
-          <View style={styles.filterRow}>
+        <View style={styles.filterRow}>
             {(['all', 'photos', 'videos'] as const).map(filter => (
               <Pressable
                 key={filter}
@@ -867,28 +701,16 @@ function AppContent() {
                 </Text>
               </Pressable>
             ))}
-          </View>
-        )}
+        </View>
 
-        {isRecents ? (
-          <FlatList
-            data={filteredEvents}
-            keyExtractor={item => item.filename}
-            renderItem={renderEvent}
-            style={styles.eventsListFull}
-            contentContainerStyle={styles.eventsContent}
-            ListEmptyComponent={<Text style={styles.emptyText}>No items yet.</Text>}
-          />
-        ) : (
-          <FlatList
-            data={azureBlobs}
-            keyExtractor={item => item.name}
-            renderItem={renderAzure}
-            style={styles.eventsListFull}
-            contentContainerStyle={styles.eventsContent}
-            ListEmptyComponent={<Text style={styles.emptyText}>No items yet.</Text>}
-          />
-        )}
+        <FlatList
+          data={filteredEvents}
+          keyExtractor={item => item.filename}
+          renderItem={renderEvent}
+          style={styles.eventsListFull}
+          contentContainerStyle={styles.eventsContent}
+          ListEmptyComponent={<Text style={styles.emptyText}>No items yet.</Text>}
+        />
       </SafeAreaView>
     )
   }
@@ -1118,16 +940,6 @@ function AppContent() {
       </View>
       <Pressable style={styles.eventNav} onPress={() => setGalleryMode('recents')}>
         <Text style={styles.eventNavText}>Open Recent Events ({events.length})</Text>
-      </Pressable>
-
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Cloud Photos</Text>
-        <Pressable onPress={fetchAzure}>
-          <Text style={styles.link}>Refresh</Text>
-        </Pressable>
-      </View>
-      <Pressable style={styles.eventNav} onPress={() => setGalleryMode('cloud')}>
-        <Text style={styles.eventNavText}>Open Cloud Photos ({azureBlobs.length})</Text>
       </Pressable>
 
       <Pressable style={styles.button} onPress={takePhoto}>

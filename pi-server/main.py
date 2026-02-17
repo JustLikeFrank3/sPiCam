@@ -81,6 +81,7 @@ STREAM_WARMUP_SEC = float(os.getenv("STREAM_WARMUP_SEC", "10"))
 RTC_ENABLED = os.getenv("RTC_ENABLED", "0") == "1"
 SHUTTER_BUTTON_ENABLED = os.getenv("SHUTTER_BUTTON_ENABLED", "1") == "1"
 SHUTTER_BUTTON_GPIO = int(os.getenv("SHUTTER_BUTTON_GPIO", "17"))
+MEDIA_RETENTION_DAYS = int(os.getenv("MEDIA_RETENTION_DAYS", "7"))
 rtc_device = None
 rtc_error: Optional[str] = None
 motion_notifications = []
@@ -351,6 +352,32 @@ def _add_notification(message: str, kind: str = "info"):
         del motion_notifications[:-MOTION_NOTIFICATIONS_MAX]
 
 
+def _cleanup_old_media():
+    """Delete media files older than MEDIA_RETENTION_DAYS."""
+    if MEDIA_RETENTION_DAYS <= 0:
+        return  # Cleanup disabled
+    
+    try:
+        import time
+        cutoff_time = time.time() - (MEDIA_RETENTION_DAYS * 86400)  # 86400 seconds per day
+        deleted_count = 0
+        
+        for file_path in MEDIA_DIR.glob("*"):
+            if file_path.is_file():
+                if file_path.stat().st_mtime < cutoff_time:
+                    try:
+                        file_path.unlink()
+                        deleted_count += 1
+                        print(f"[PiCam] Cleanup: deleted old file {file_path.name}")
+                    except Exception as e:
+                        print(f"[PiCam] Cleanup: failed to delete {file_path.name}: {e}")
+        
+        if deleted_count > 0:
+            print(f"[PiCam] Cleanup: removed {deleted_count} file(s) older than {MEDIA_RETENTION_DAYS} days")
+    except Exception as exc:
+        print(f"[PiCam] Cleanup failed: {exc}")
+
+
 def _upload_blob(path: Path):
     if container_client is None:
         print(f"[PiCam] Azure upload skipped for {path.name}")
@@ -369,6 +396,8 @@ def _upload_blob(path: Path):
                 content_settings=ContentSettings(content_type=content_type),
             )
         print(f"[PiCam] Azure upload ok: {path.name}")
+        # Cleanup old files after successful upload
+        _cleanup_old_media()
     except Exception as exc:
         print(f"[PiCam] Azure upload failed for {path.name}: {exc}")
 
