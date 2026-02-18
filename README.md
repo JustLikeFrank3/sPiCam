@@ -15,6 +15,9 @@ A Raspberry Pi camera project with a FastAPI server and an iOS mobile app.
   - `src/styles/` — `appStyles`
 
 ## Recent Features
+- **CI/CD pipeline** — GitHub Actions runs pytest + TypeScript type-check on every push; manual-dispatch CD workflow handles EAS build + TestFlight submission
+- **Pi server test suite** — 39 API tests covering all routers; runs in CI without a Raspberry Pi via hardware stubs
+- **Build number drift fixed** — `appVersionSource: "remote"` in `eas.json` hands the build counter to EAS permanently
 - **App icon redesign** — raspberry glare highlights set to white; all PNGs regenerated from SVG (transparent background, Liquid Glass–ready for iOS 26)
 - Push notifications for motion events
 - App-controlled motion arm/disarm on foreground/background

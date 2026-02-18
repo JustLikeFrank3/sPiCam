@@ -6,14 +6,23 @@ All notable changes to sPiCam are documented here.
 
 ## [Unreleased] - 2026-02-18
 
+### Added
+- **GitHub Actions CI** — runs `pytest` (Python 3.11) + `tsc --noEmit` (Node 20) on every push and PR to `main`
+- **GitHub Actions CD** — manual-dispatch or version-tag triggered EAS build + TestFlight auto-submit
+- **Pi server API test suite** — 39 pytest tests across all 5 router groups (`camera`, `motion`, `events`, `notifications`, `azure`); Pi hardware stubs allow tests to run in CI without a Raspberry Pi
+- `pi-server/requirements-dev.txt` — CI-safe dependency set (excludes `picamera2`, `RPi.GPIO`, etc.)
+
 ### Changed
 - **App icon redesign** — SVG source (`spicam_icon.svg`) updated with white glare highlights on raspberry; all PNG icon files regenerated from SVG with transparent background
 - **Liquid Glass ready** — transparent icon background allows iOS 26 Liquid Glass material to render correctly through the icon
 - Icon generation script (`generate_icons.py`) now renders directly from SVG via `cairosvg` instead of relying on a pre-baked PNG
 - Updated: `spicam_icon_1024.png`, `App-Icon-1024x1024@1x.png` (iOS), and all sizes in `spicam_icons/`
 
+### Fixed
+- **Build number drift** — `eas.json` now sets `appVersionSource: "remote"` so EAS owns the build counter; `app.json` `buildNumber` bumped to `8` to stay ahead of last submitted build (`7`)
+
 ### Build
-- `buildNumber` bumped to `6` for TestFlight
+- `buildNumber` set to `8`; EAS remote counter takes precedence going forward
 
 ---
 
