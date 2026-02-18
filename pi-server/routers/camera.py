@@ -1,14 +1,14 @@
 from fastapi import APIRouter
 import inspect
+from starlette.concurrency import run_in_threadpool
 
 from models import RecordRequest
 
 
 async def _invoke(handler, *args, **kwargs):
-    result = handler(*args, **kwargs)
-    if inspect.isawaitable(result):
-        return await result
-    return result
+    if inspect.iscoroutinefunction(handler):
+        return await handler(*args, **kwargs)
+    return await run_in_threadpool(handler, *args, **kwargs)
 
 
 def create_camera_router(
