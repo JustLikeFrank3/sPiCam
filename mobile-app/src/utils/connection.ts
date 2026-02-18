@@ -19,8 +19,12 @@ type RetryConnectionParams = {
 
 const createTimeoutController = () => {
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 5000)
+  const timeoutId = setTimeout(() => controller.abort(), 12000)
   return { controller, timeoutId }
+}
+
+const isAbortError = (error: unknown) => {
+  return error instanceof Error && error.name === 'AbortError'
 }
 
 export const checkConnection = async ({
@@ -52,7 +56,9 @@ export const checkConnection = async ({
     }
   } catch (error) {
     clearTimeout(timeoutId)
-    console.error('[SPICAM] Connection check failed', error)
+    if (!isAbortError(error)) {
+      console.error('[SPICAM] Connection check failed', error)
+    }
     setConnectionStatus('failed')
     if (!hasUserDismissedHelp) {
       setShowConnectionHelp(true)
@@ -87,7 +93,9 @@ export const retryConnection = async ({
     }
   } catch (error) {
     clearTimeout(timeoutId)
-    console.error('[SPICAM] Retry connection failed', error)
+    if (!isAbortError(error)) {
+      console.error('[SPICAM] Retry connection failed', error)
+    }
     setConnectionStatus('failed')
   } finally {
     setIsRetrying(false)

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Platform, Alert, AppState, Linking } from 'react-native'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import Constants from 'expo-constants'
@@ -23,9 +23,9 @@ function AppContent() {
   const [isReady, setIsReady] = useState(false)
   const [hasUserDismissedHelp, setHasUserDismissedHelp] = useState(false)
   const [isRetrying, setIsRetrying] = useState(false)
-  const log = (...args: Array<unknown>) => {
+  const log = useCallback((...args: Array<unknown>) => {
     console.log('[SPICAM]', ...args)
-  }
+  }, [])
   const defaultBaseUrl = (() => {
     if (Constants.isDevice) return 'http://100.86.177.103:8000'
     if (Platform.OS === 'android') return 'http://10.0.2.2:8000'
@@ -54,16 +54,19 @@ function AppContent() {
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'failed'>('checking')
   const [showConnectionHelp, setShowConnectionHelp] = useState(false)
   const [customIp, setCustomIp] = useState('')
+  const isConnectionCheckInFlight = useRef(false)
 
   const bumpStreamKey = useCallback(() => {
     setStreamKey(key => key + 1)
   }, [])
 
+  const markReady = useCallback(() => {
+    setIsReady(true)
+  }, [])
+
   useSplashReady({
     baseUrl,
-    onReady: () => {
-      setIsReady(true)
-    },
+    onReady: markReady,
     log,
   })
 
@@ -224,12 +227,20 @@ function AppContent() {
   }, [baseUrl, motionThreshold, motionMinArea, notificationCooldown])
 
   const checkConnection = useCallback(async () => {
-    await checkConnectionRequest({
-      baseUrl,
-      hasUserDismissedHelp,
-      setConnectionStatus,
-      setShowConnectionHelp,
-    })
+    if (isConnectionCheckInFlight.current) {
+      return
+    }
+    isConnectionCheckInFlight.current = true
+    try {
+      await checkConnectionRequest({
+        baseUrl,
+        hasUserDismissedHelp,
+        setConnectionStatus,
+        setShowConnectionHelp,
+      })
+    } finally {
+      isConnectionCheckInFlight.current = false
+    }
   }, [baseUrl, hasUserDismissedHelp])
 
   const retryConnection = useCallback(async () => {
@@ -283,16 +294,16 @@ function AppContent() {
     }
   }, [baseUrl, fetchEvents])
 
-  const registerForPushNotifications = async (options?: { silent?: boolean }) => {
+  const registerForPushNotifications = useCallback(async (options?: { silent?: boolean }) => {
     await registerForPushNotificationsRequest({
       baseUrl,
       setExpoPushToken,
       log,
       options,
     })
-  }
+  }, [baseUrl, log])
 
-  const disablePushNotifications = async () => {
+  const disablePushNotifications = useCallback(async () => {
     if (!expoPushToken) {
       return
     }
@@ -302,7 +313,7 @@ function AppContent() {
       setExpoPushToken,
       log,
     })
-  }
+  }, [baseUrl, expoPushToken, log])
 
 
   useAppInitialization({
@@ -318,8 +329,11 @@ function AppContent() {
   })
 
   useEffect(() => {
-    checkConnection()
-  }, [baseUrl, checkConnection])
+    if (!isReady) {
+      return
+    }
+    void checkConnection()
+  }, [isReady, baseUrl, checkConnection])
 
   const takePhoto = async () => {
     try {

@@ -26,9 +26,11 @@ export function useAppInitialization({
   log,
 }: Params) {
   const hasAttemptedAutoRegister = useRef(false)
+  const hasInitialized = useRef(false)
 
   useEffect(() => {
-    if (!isReady) return
+    if (!isReady || hasInitialized.current) return
+    hasInitialized.current = true
 
     const initializeApp = async () => {
       const dismissed = await AsyncStorage.getItem('connectionHelpDismissed')
