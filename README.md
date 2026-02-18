@@ -7,8 +7,12 @@
 A Raspberry Pi camera project with a FastAPI server and an iOS mobile app.
 
 ## Structure
-- `pi-server/` FastAPI server (stream + photo + events)
-- `mobile-app/` Expo app for live view + capture
+- `pi-server/` FastAPI server — modular routers (`camera`, `motion`, `events`, `azure`, `notifications`) and services
+- `mobile-app/` Expo/React Native iOS app — modular components, hooks, and utils
+  - `src/components/` — `ConnectionSetupModal`, `GalleryScreen`, `MainDashboard`, `MediaPreviewScreen`
+  - `src/hooks/` — `useAppInitialization`, `useAppStateSync`, `useSplashReady`
+  - `src/utils/` — `media`, `connection`, `pushNotifications`
+  - `src/styles/` — `appStyles`
 
 ## Recent Features
 - Push notifications for motion events
@@ -19,6 +23,9 @@ A Raspberry Pi camera project with a FastAPI server and an iOS mobile app.
 - Motion debug/metrics endpoints for tuning
 - Push token persistence on the Pi
 - **Tailscale VPN support** - remote access from anywhere
+- **Backend refactor** — monolithic `main.py` split into modular routers and services
+- **Frontend refactor** — `App.tsx` (~1500 lines) split into components, hooks, and utils
+- **Save/Share fix** — media directory created before download to prevent failures in TestFlight
 
 ## Pi Server Setup (on Raspberry Pi)
 1. Install OS + enable camera:
