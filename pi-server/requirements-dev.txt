@@ -1,0 +1,14 @@
+# Server – CI-safe subset (excludes Pi hardware packages)
+fastapi
+uvicorn[standard]
+httpx
+python-dotenv
+pillow
+numpy
+opencv-python-headless
+azure-storage-blob
+pydantic
+
+# Testing
+pytest>=8.0
+pytest-asyncio>=0.23

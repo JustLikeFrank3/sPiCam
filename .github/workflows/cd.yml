@@ -1,0 +1,72 @@
+name: CD – EAS Build & Submit
+
+on:
+  # Trigger manually from the GitHub Actions tab
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Platform to build
+        required: true
+        default: ios
+        type: choice
+        options: [ios, android, all]
+      profile:
+        description: EAS build profile
+        required: true
+        default: production
+        type: choice
+        options: [production, preview, development]
+      submit:
+        description: Submit to store after build?
+        required: true
+        default: "true"
+        type: choice
+        options: ["true", "false"]
+
+  # Also trigger automatically on version tags (e.g. v1.2.3)
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  eas-build:
+    name: EAS Build (${{ github.event.inputs.platform || 'ios' }})
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: mobile-app/package-lock.json
+
+      - name: Install dependencies
+        working-directory: mobile-app
+        run: npm ci
+
+      - name: Set up EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: EAS Build
+        working-directory: mobile-app
+        run: |
+          eas build \
+            --platform ${{ github.event.inputs.platform || 'ios' }} \
+            --profile ${{ github.event.inputs.profile || 'production' }} \
+            --non-interactive
+
+      - name: EAS Submit (iOS → TestFlight)
+        if: ${{ (github.event.inputs.submit == 'true' || github.event_name == 'push') && (github.event.inputs.platform == 'ios' || github.event_name == 'push') }}
+        working-directory: mobile-app
+        run: |
+          eas submit \
+            --platform ios \
+            --profile production \
+            --non-interactive \
+            --latest
