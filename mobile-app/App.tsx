@@ -125,6 +125,8 @@ function AppContent() {
       }
 
       const fileUri = `${FileSystem.documentDirectory!}${filename}`
+      const fileDir = fileUri.substring(0, fileUri.lastIndexOf('/'))
+      await FileSystem.makeDirectoryAsync(fileDir, { intermediates: true })
       const downloadResult = await FileSystem.downloadAsync(
         getAzureMediaUrl(baseUrl, filename),
         fileUri
@@ -144,6 +146,8 @@ function AppContent() {
   const shareMedia = async (filename: string) => {
     try {
       const fileUri = `${FileSystem.cacheDirectory!}${filename}`
+      const fileDir = fileUri.substring(0, fileUri.lastIndexOf('/'))
+      await FileSystem.makeDirectoryAsync(fileDir, { intermediates: true })
       const downloadResult = await FileSystem.downloadAsync(
         getAzureMediaUrl(baseUrl, filename),
         fileUri
