@@ -15,6 +15,7 @@ A Raspberry Pi camera project with a FastAPI server and an iOS mobile app.
   - `src/styles/` — `appStyles`
 
 ## Recent Features
+- **App icon redesign** — raspberry glare highlights set to white; all PNGs regenerated from SVG (transparent background, Liquid Glass–ready for iOS 26)
 - Push notifications for motion events
 - App-controlled motion arm/disarm on foreground/background
 - **Motion sensitivity UI controls** - adjust threshold, min area, and cooldown from mobile app

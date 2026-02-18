@@ -4,6 +4,19 @@ All notable changes to sPiCam are documented here.
 
 ---
 
+## [Unreleased] - 2026-02-18
+
+### Changed
+- **App icon redesign** — SVG source (`spicam_icon.svg`) updated with white glare highlights on raspberry; all PNG icon files regenerated from SVG with transparent background
+- **Liquid Glass ready** — transparent icon background allows iOS 26 Liquid Glass material to render correctly through the icon
+- Icon generation script (`generate_icons.py`) now renders directly from SVG via `cairosvg` instead of relying on a pre-baked PNG
+- Updated: `spicam_icon_1024.png`, `App-Icon-1024x1024@1x.png` (iOS), and all sizes in `spicam_icons/`
+
+### Build
+- `buildNumber` bumped to `6` for TestFlight
+
+---
+
 ## [1.2.2] - 2026-02-18
 
 ### Fixed
