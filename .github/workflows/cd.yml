@@ -53,20 +53,17 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: EAS Build
+      - name: EAS Build (+ auto-submit when requested)
         working-directory: mobile-app
         run: |
-          eas build \
-            --platform ${{ github.event.inputs.platform || 'ios' }} \
-            --profile ${{ github.event.inputs.profile || 'production' }} \
-            --non-interactive
+          PLATFORM="${{ github.event.inputs.platform || 'ios' }}"
+          PROFILE="${{ github.event.inputs.profile || 'production' }}"
+          SUBMIT="${{ github.event.inputs.submit || 'true' }}"
 
-      - name: EAS Submit (iOS → TestFlight)
-        if: ${{ (github.event.inputs.submit == 'true' || github.event_name == 'push') && (github.event.inputs.platform == 'ios' || github.event_name == 'push') }}
-        working-directory: mobile-app
-        run: |
-          eas submit \
-            --platform ios \
-            --profile production \
-            --non-interactive \
-            --latest
+          # --auto-submit hands off to EAS to submit once the build completes,
+          # avoiding the race condition where --latest grabs an older build.
+          if [[ "$SUBMIT" == "true" && "$PLATFORM" == "ios" ]]; then
+            eas build --platform "$PLATFORM" --profile "$PROFILE" --non-interactive --auto-submit
+          else
+            eas build --platform "$PLATFORM" --profile "$PROFILE" --non-interactive
+          fi
