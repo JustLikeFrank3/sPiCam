@@ -2,7 +2,7 @@
   "expo": {
     "name": "sPiCam",
     "slug": "spicam",
-    "version": "0.1.0",
+    "version": "1.2.2",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "icon": "./assets/spicam_icon_1024.png",
@@ -28,6 +28,7 @@
           "NSAllowsArbitraryLoads": true
         }
       },
+      "buildNumber": "5",
       "bundleIdentifier": "com.justlikefrank3.spicam",
       "entitlements": {
         "aps-environment": "production"
