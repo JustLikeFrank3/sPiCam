@@ -28,7 +28,7 @@
           "NSAllowsArbitraryLoads": true
         }
       },
-      "buildNumber": "6",
+      "buildNumber": "8",
       "bundleIdentifier": "com.justlikefrank3.spicam",
       "entitlements": {
         "aps-environment": "production"
