@@ -25,8 +25,13 @@ master = Image.open(io.BytesIO(png_1024_bytes)).convert("RGBA")
 master.save(EXPO_ICON)
 print(f"Updated {EXPO_ICON}")
 
-master.save(IOS_APPICON)
-print(f"Updated {IOS_APPICON}")
+# Apple App Store validation rejects icons with alpha channels.
+# Flatten onto solid black background for the App Store submission icon.
+appstore_icon = Image.new("RGBA", master.size, (0, 0, 0, 255))
+appstore_icon.paste(master, mask=master.split()[3])
+appstore_icon = appstore_icon.convert("RGB")  # strip alpha entirely
+appstore_icon.save(IOS_APPICON)
+print(f"Updated {IOS_APPICON} (flattened, no alpha — App Store compatible)")
 
 # ==== GENERATE ALL SIZES ====
 for s in sizes:
