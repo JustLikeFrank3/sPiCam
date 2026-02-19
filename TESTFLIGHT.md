@@ -1,6 +1,6 @@
 # TestFlight Deployment Guide
 
-This guide walks you through deploying sPiCam to TestFlight for beta testing.
+This guide walks you through deploying retrosPiCam to TestFlight for beta testing.
 
 ## Prerequisites
 
@@ -29,10 +29,10 @@ This guide walks you through deploying sPiCam to TestFlight for beta testing.
 1. Go to https://appstoreconnect.apple.com
 2. Click **Apps** → **+** (Add App)
 3. Fill in:
-   - Name: `sPiCam`
+   - Name: `retrosPiCam`
    - Primary Language: English
-   - Bundle ID: `com.justlikefrank3.spicam` (select from dropdown)
-   - SKU: `spicam` (or any unique identifier)
+   - Bundle ID: `com.justlikefrank3.retrospicam` (select from dropdown)
+   - SKU: `retrospicam` (or any unique identifier)
 4. Click **Create**
 5. Copy the **App ID** (numeric, found in App Information)
 
@@ -56,7 +56,7 @@ Edit `mobile-app/eas.json` and replace placeholder values:
 ### Generate APNs Key
 1. Go to https://developer.apple.com/account/resources/authkeys/list
 2. Click **+** (Add Key)
-3. Name: `sPiCam Push Notifications`
+3. Name: `retrosPiCam Push Notifications`
 4. Enable **Apple Push Notifications service (APNs)**
 5. Click **Continue** → **Register** → **Download**
 6. Save the `.p8` file securely
@@ -90,7 +90,7 @@ This will:
 
 ### Monitor Build
 - Watch the terminal output for progress
-- Or check https://expo.dev/accounts/justlikefrank3/projects/spicam/builds
+- Or check https://expo.dev/accounts/justlikefrank3/projects/retrospicam/builds
 
 ## Step 4: Submit to TestFlight
 
@@ -130,7 +130,7 @@ Once approved:
 
 Testers will receive an email with:
 - Link to download TestFlight app
-- Invite code to install sPiCam
+- Invite code to install retrosPiCam
 
 ## Step 7: Install on iPhone
 
@@ -163,7 +163,7 @@ TestFlight testers will automatically receive update notifications.
 ## Troubleshooting
 
 ### Build fails with "Invalid Bundle Identifier"
-- Ensure bundle ID matches App Store Connect: `com.justlikefrank3.spicam`
+- Ensure bundle ID matches App Store Connect: `com.justlikefrank3.retrospicam`
 - Check `mobile-app/app.json` → `ios.bundleIdentifier`
 
 ### "Missing Push Notification Entitlement"

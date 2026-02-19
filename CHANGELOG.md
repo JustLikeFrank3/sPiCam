@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to sPiCam are documented here.
+All notable changes to retrosPiCam are documented here.
 
 ---
 
@@ -13,10 +13,10 @@ All notable changes to sPiCam are documented here.
 - `pi-server/requirements-dev.txt` — CI-safe dependency set (excludes `picamera2`, `RPi.GPIO`, etc.)
 
 ### Changed
-- **App icon redesign** — SVG source (`spicam_icon.svg`) updated with white glare highlights on raspberry; all PNG icon files regenerated from SVG with transparent background
+- **App icon redesign** — SVG source (`retrospicam_icon.svg`) updated with white glare highlights on raspberry; all PNG icon files regenerated from SVG with transparent background
 - **Liquid Glass ready** — transparent icon background allows iOS 26 Liquid Glass material to render correctly through the icon
 - Icon generation script (`generate_icons.py`) now renders directly from SVG via `cairosvg` instead of relying on a pre-baked PNG
-- Updated: `spicam_icon_1024.png`, `App-Icon-1024x1024@1x.png` (iOS), and all sizes in `spicam_icons/`
+- Updated: `retrospicam_icon_1024.png`, `App-Icon-1024x1024@1x.png` (iOS), and all sizes in `retrospicam_icons/`
 
 ### Fixed
 - **Build number drift** — `eas.json` now sets `appVersionSource: "remote"` so EAS owns the build counter; `app.json` `buildNumber` bumped to `8` to stay ahead of last submitted build (`7`)

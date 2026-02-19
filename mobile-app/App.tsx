@@ -24,7 +24,7 @@ function AppContent() {
   const [hasUserDismissedHelp, setHasUserDismissedHelp] = useState(false)
   const [isRetrying, setIsRetrying] = useState(false)
   const log = useCallback((...args: Array<unknown>) => {
-    console.log('[SPICAM]', ...args)
+    console.log('[RETROSPICAM]', ...args)
   }, [])
   const defaultBaseUrl = (() => {
     if (Constants.isDevice) return 'http://100.86.177.103:8000'
@@ -292,7 +292,7 @@ function AppContent() {
         Alert.alert('Recording Error', data.error)
       }
     } catch (error) {
-      console.error('[SPICAM] Recording error', error)
+      console.error('[RETROSPICAM] Recording error', error)
       setIsRecording(false)
       Alert.alert('Recording Failed', error instanceof Error ? error.message : 'Unknown error')
     }

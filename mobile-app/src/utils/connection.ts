@@ -57,7 +57,7 @@ export const checkConnection = async ({
   } catch (error) {
     clearTimeout(timeoutId)
     if (!isAbortError(error)) {
-      console.error('[SPICAM] Connection check failed', error)
+      console.error('[RETROSPICAM] Connection check failed', error)
     }
     setConnectionStatus('failed')
     if (!hasUserDismissedHelp) {
@@ -94,7 +94,7 @@ export const retryConnection = async ({
   } catch (error) {
     clearTimeout(timeoutId)
     if (!isAbortError(error)) {
-      console.error('[SPICAM] Retry connection failed', error)
+      console.error('[RETROSPICAM] Retry connection failed', error)
     }
     setConnectionStatus('failed')
   } finally {

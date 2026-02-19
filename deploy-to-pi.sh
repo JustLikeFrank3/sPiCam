@@ -1,10 +1,10 @@
 #!/bin/bash
-# Deploy sPiCam pi-server to Raspberry Pi
+# Deploy retrosPiCam pi-server to Raspberry Pi
 
 # Configuration - Set these via environment variables:
 #   export PI_HOST=192.168.68.71
 #   export PI_USER=fvm3
-#   export PI_PATH=~/spicam
+#   export PI_PATH=~/retrospicam
 #   ./deploy-to-pi.sh
 
 PI_HOST="${PI_HOST:-192.168.68.71}"  # Local IP (use PI_HOST=100.86.177.103 for Tailscale)
@@ -17,7 +17,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-echo -e "${GREEN}=== sPiCam Deployment Script ===${NC}"
+echo -e "${GREEN}=== retrosPiCam Deployment Script ===${NC}"
 echo ""
 echo "Target: ${PI_USER}@${PI_HOST}:${PI_PATH}"
 echo ""
@@ -67,20 +67,20 @@ ssh "${PI_USER}@${PI_HOST}" << 'ENDSSH'
     cd ~/pi-server
     
     # Check if running as systemd service
-    if systemctl is-active --quiet spicam.service 2>/dev/null; then
+    if systemctl is-active --quiet retrospicam.service 2>/dev/null; then
         echo "Restarting systemd service..."
-        sudo systemctl restart spicam.service
-        sudo systemctl status spicam.service --no-pager
+        sudo systemctl restart retrospicam.service
+        sudo systemctl status retrospicam.service --no-pager
     # Check if running in screen/tmux
-    elif screen -ls | grep -q spicam; then
+    elif screen -ls | grep -q retrospicam; then
         echo "Found screen session, sending quit command..."
-        screen -S spicam -X stuff "^C"
+        screen -S retrospicam -X stuff "^C"
         sleep 2
-        screen -S spicam -X stuff "source .venv/bin/activate && uvicorn main:app --host 0.0.0.0 --port 8000\n"
+        screen -S retrospicam -X stuff "source .venv/bin/activate && uvicorn main:app --host 0.0.0.0 --port 8000\n"
     else
         echo "No running service detected."
         echo "To start manually:"
-        echo "  cd ~/spicam"
+        echo "  cd ~/retrospicam"
         echo "  source .venv/bin/activate"
         echo "  uvicorn main:app --host 0.0.0.0 --port 8000"
     fi
@@ -98,4 +98,4 @@ echo ""
 echo "Monitor the server:"
 echo "  ssh ${PI_USER}@${PI_HOST}"
 echo "  htop              # Check CPU usage"
-echo "  journalctl -u spicam.service -f   # If running as service"
+echo "  journalctl -u retrospicam.service -f   # If running as service"

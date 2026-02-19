@@ -35,7 +35,7 @@ export default function ConnectionSetupModal({
             <Text style={styles.modalTitle}>Connection Setup Required</Text>
 
             <Text style={styles.modalText}>
-              sPiCam couldn't reach your Raspberry Pi. To use this app remotely, you need to set up Tailscale VPN.
+              retrosPiCam couldn't reach your Raspberry Pi. To use this app remotely, you need to set up Tailscale VPN.
             </Text>
 
             <View style={styles.modalSection}>

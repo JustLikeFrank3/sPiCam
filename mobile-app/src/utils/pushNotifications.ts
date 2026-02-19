@@ -28,7 +28,7 @@ type SetupListenersParams = {
 const promptMotionDetected = (onRecord30: () => void, onRecord60: () => void) => {
   Alert.alert(
     'Motion Detected',
-    'Motion detected by sPiCam. Start recording?',
+    'Motion detected by retrosPiCam. Start recording?',
     [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Record 30s', onPress: onRecord30 },
@@ -96,7 +96,7 @@ const registerTokenWithServer = async (baseUrl: string, token: string, log: LogF
       Alert.alert('Success', 'Push notifications enabled! You\'ll receive alerts when motion is detected.')
     }
   } catch (error) {
-    console.error('[SPICAM] Failed to register push token with server', error)
+    console.error('[RETROSPICAM] Failed to register push token with server', error)
     if (!silent) {
       Alert.alert('Warning', 'Notifications enabled locally, but server registration failed. Motion alerts may not work.')
     }
@@ -125,7 +125,7 @@ export const registerForPushNotifications = async ({ baseUrl, setExpoPushToken, 
 
     await registerTokenWithServer(baseUrl, token, log, silent)
   } catch (error) {
-    console.error('[SPICAM] Push notification registration error', error)
+    console.error('[RETROSPICAM] Push notification registration error', error)
     if (!silent) {
       Alert.alert('Error', error instanceof Error ? error.message : 'Failed to enable notifications')
     }
@@ -159,7 +159,7 @@ export const disablePushNotifications = ({ baseUrl, expoPushToken, setExpoPushTo
               log('Server unregister response', data)
               setExpoPushToken(null)
             } catch (error) {
-              console.error('[SPICAM] Failed to unregister push token', error)
+              console.error('[RETROSPICAM] Failed to unregister push token', error)
               Alert.alert('Disable Failed', 'Could not disable alerts. Try again.')
             }
           })()

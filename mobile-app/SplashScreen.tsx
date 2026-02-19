@@ -19,11 +19,11 @@ export default function SplashScreen() {
     <View style={styles.container}>
       <View style={styles.content}>
         <Image
-          source={require('./assets/spicam_icon_1024.png')}
+          source={require('./assets/retrospicam_icon_1024.png')}
           style={styles.logo}
           resizeMode="contain"
         />
-        <Text style={styles.appName}>sPiCam</Text>
+        <Text style={styles.appName}>retrosPiCam</Text>
         <Animated.Text style={[styles.tagline, { opacity: fadeAnim }]}>
           Analog looks. Digital vigilance.
         </Animated.Text>

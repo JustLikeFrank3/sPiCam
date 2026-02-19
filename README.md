@@ -1,8 +1,8 @@
 <p align="center">
-   <img src="mobile-app/assets/spicam_icons/icon_512.png?raw=1" width="360" alt="sPiCam" />
+   <img src="mobile-app/assets/retrospicam_icons/icon_512.png?raw=1" width="360" alt="retrosPiCam" />
 </p>
 
-# sPiCam
+# retrosPiCam
 
 A Raspberry Pi camera project with a FastAPI server and an iOS mobile app.
 
@@ -50,9 +50,9 @@ To run the server automatically on boot:
 
 ```bash
 # Create service file
-sudo tee /etc/systemd/system/spicam.service > /dev/null << 'EOF'
+sudo tee /etc/systemd/system/retrospicam.service > /dev/null << 'EOF'
 [Unit]
-Description=sPiCam Server
+Description=retrosPiCam Server
 After=network.target
 
 [Service]
@@ -69,16 +69,16 @@ EOF
 
 # Enable and start service
 sudo systemctl daemon-reload
-sudo systemctl enable spicam.service
-sudo systemctl start spicam.service
-sudo systemctl status spicam.service
+sudo systemctl enable retrospicam.service
+sudo systemctl start retrospicam.service
+sudo systemctl status retrospicam.service
 ```
 
 Manage the service:
 ```bash
-sudo systemctl status spicam.service   # Check status
-sudo systemctl restart spicam.service  # Restart
-journalctl -u spicam.service -f        # View logs
+sudo systemctl status retrospicam.service   # Check status
+sudo systemctl restart retrospicam.service  # Restart
+journalctl -u retrospicam.service -f        # View logs
 ```
 
 **Note:** Replace `fvm3` with your username and adjust paths if different.
@@ -119,7 +119,7 @@ When connected, use base URL: `http://192.168.4.1:8000`
 3. `npm run start`
 
 ## TestFlight Deployment
-To deploy sPiCam to TestFlight for beta testing:
+To deploy retrosPiCam to TestFlight for beta testing:
 - See [TESTFLIGHT.md](TESTFLIGHT.md) for complete deployment guide
 - Requires Apple Developer account ($99/year)
 - Uses EAS (Expo Application Services) for building and submission

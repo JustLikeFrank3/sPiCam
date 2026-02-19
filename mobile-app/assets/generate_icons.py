@@ -5,13 +5,13 @@ import shutil
 import io
 
 # ==== CONFIG ====
-svg_input = "spicam_icon.svg"
-output_folder = "spicam_icons"
+svg_input = "retrospicam_icon.svg"
+output_folder = "retrospicam_icons"
 sizes = [32, 64, 128, 256, 512, 1024]
 
 # Destination files to update
-IOS_APPICON = "../ios/sPiCam/Images.xcassets/AppIcon.appiconset/App-Icon-1024x1024@1x.png"
-EXPO_ICON   = "spicam_icon_1024.png"
+IOS_APPICON = "../ios/retrosPiCam/Images.xcassets/AppIcon.appiconset/App-Icon-1024x1024@1x.png"
+EXPO_ICON   = "retrospicam_icon_1024.png"
 
 # ==== CREATE OUTPUT FOLDER ====
 os.makedirs(output_folder, exist_ok=True)
