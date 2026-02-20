@@ -1,6 +1,6 @@
 # TestFlight Deployment Guide
 
-This guide walks you through deploying retrosPiCam to TestFlight for beta testing.
+This guide walks you through deploying RetrosPiCam to TestFlight for beta testing.
 
 ## Prerequisites
 
@@ -29,7 +29,7 @@ This guide walks you through deploying retrosPiCam to TestFlight for beta testin
 1. Go to https://appstoreconnect.apple.com
 2. Click **Apps** → **+** (Add App)
 3. Fill in:
-   - Name: `retrosPiCam`
+   - Name: `RetrosPiCam`
    - Primary Language: English
    - Bundle ID: `com.justlikefrank3.retrospicam` (select from dropdown)
    - SKU: `retrospicam` (or any unique identifier)
@@ -56,7 +56,7 @@ Edit `mobile-app/eas.json` and replace placeholder values:
 ### Generate APNs Key
 1. Go to https://developer.apple.com/account/resources/authkeys/list
 2. Click **+** (Add Key)
-3. Name: `retrosPiCam Push Notifications`
+3. Name: `RetrosPiCam Push Notifications`
 4. Enable **Apple Push Notifications service (APNs)**
 5. Click **Continue** → **Register** → **Download**
 6. Save the `.p8` file securely
@@ -130,7 +130,7 @@ Once approved:
 
 Testers will receive an email with:
 - Link to download TestFlight app
-- Invite code to install retrosPiCam
+- Invite code to install RetrosPiCam
 
 ## Step 7: Install on iPhone
 

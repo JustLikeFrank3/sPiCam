@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to retrosPiCam are documented here.
+All notable changes to RetrosPiCam are documented here.
 
 ---
 

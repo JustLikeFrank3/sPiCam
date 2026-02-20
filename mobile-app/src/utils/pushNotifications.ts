@@ -28,7 +28,7 @@ type SetupListenersParams = {
 const promptMotionDetected = (onRecord30: () => void, onRecord60: () => void) => {
   Alert.alert(
     'Motion Detected',
-    'Motion detected by retrosPiCam. Start recording?',
+    'Motion detected by RetrosPiCam. Start recording?'
     [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Record 30s', onPress: onRecord30 },

@@ -386,7 +386,7 @@ from .services import MotionService, NotificationService
 from .config import config
 import threading
 
-app = FastAPI(title="retrosPiCam API")
+app = FastAPI(title="RetrosPiCam API")
 
 # CORS
 app.add_middleware(
@@ -422,7 +422,7 @@ async def shutdown_event():
 
 @app.get("/")
 async def root():
-    return {"status": "retrosPiCam API running"}
+    return {"status": "RetrosPiCam API running"}
 
 @app.get("/health")
 async def health_check():

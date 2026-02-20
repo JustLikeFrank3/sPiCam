@@ -82,7 +82,7 @@ export default function MainDashboard({
     <ScrollView contentContainerStyle={styles.scrollContent}>
       <View style={styles.header}>
         <Image source={require('../../assets/retrospicam_icons/icon_512.png')} style={styles.logo} resizeMode="contain" />
-        <Text style={styles.title}>retrosPiCam</Text>
+        <Text style={styles.title}>RetrosPiCam</Text>
       </View>
 
       <View style={styles.inputRow}>

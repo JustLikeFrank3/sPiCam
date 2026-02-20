@@ -126,7 +126,7 @@ def recolor_svg_pixel_rects(svg_path: Path) -> int:
 
 def main() -> None:
     png_path = Path(__file__).with_name("retrospicam_icon_1024.png")
-    svg_path = Path(__file__).with_name("retrosPiCamLogoV2.svg")
+    svg_path = Path(__file__).with_name("RetrosPiCamLogoV2.svg")
 
     png_changed = recolor_png(png_path)
     print(f"PNG updated: {png_path} (changed_pixels={png_changed})")

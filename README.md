@@ -1,8 +1,8 @@
 <p align="center">
-   <img src="mobile-app/assets/retrospicam_icons/icon_512.png?raw=1" width="360" alt="retrosPiCam" />
+   <img src="mobile-app/assets/retrospicam_icons/icon_512.png?raw=1" width="360" alt="RetrosPiCam" />
 </p>
 
-# retrosPiCam
+# RetrosPiCam
 
 A Raspberry Pi camera project with a FastAPI server and an iOS mobile app.
 
@@ -52,7 +52,7 @@ To run the server automatically on boot:
 # Create service file
 sudo tee /etc/systemd/system/retrospicam.service > /dev/null << 'EOF'
 [Unit]
-Description=retrosPiCam Server
+Description=RetrosPiCam Server
 After=network.target
 
 [Service]
@@ -119,7 +119,7 @@ When connected, use base URL: `http://192.168.4.1:8000`
 3. `npm run start`
 
 ## TestFlight Deployment
-To deploy retrosPiCam to TestFlight for beta testing:
+To deploy RetrosPiCam to TestFlight for beta testing:
 - See [TESTFLIGHT.md](TESTFLIGHT.md) for complete deployment guide
 - Requires Apple Developer account ($99/year)
 - Uses EAS (Expo Application Services) for building and submission

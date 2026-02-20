@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "retrosPiCam",
+    "name": "RetrosPiCam",
     "slug": "retrospicam",
     "version": "1.2.2",
     "orientation": "portrait",
@@ -20,10 +20,10 @@
     },
     "ios": {
       "infoPlist": {
-        "NSLocalNetworkUsageDescription": "retrosPiCam needs local network access to connect to the camera.",
-        "NSPhotoLibraryUsageDescription": "retrosPiCam needs access to save captured videos and photos to your photo library.",
-        "NSPhotoLibraryAddUsageDescription": "retrosPiCam needs access to save captured videos and photos to your photo library.",
-        "NSUserNotificationsUsageDescription": "retrosPiCam needs notification access to alert you when motion is detected.",
+        "NSLocalNetworkUsageDescription": "RetrosPiCam needs local network access to connect to the camera.",
+        "NSPhotoLibraryUsageDescription": "RetrosPiCam needs access to save captured videos and photos to your photo library.",
+        "NSPhotoLibraryAddUsageDescription": "RetrosPiCam needs access to save captured videos and photos to your photo library.",
+        "NSUserNotificationsUsageDescription": "RetrosPiCam needs notification access to alert you when motion is detected.",
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
         }

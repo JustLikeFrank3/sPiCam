@@ -1,6 +1,6 @@
 # Physical Shutter Button Setup
 
-This guide explains how to add a physical shutter button to your retrosPiCam for hands-free photo and video capture.
+This guide explains how to add a physical shutter button to your RetrosPiCam for hands-free photo and video capture.
 
 ## Hardware Requirements
 
@@ -56,7 +56,7 @@ export SHUTTER_BUTTON_GPIO=17
 ### 2. Install Dependencies
 The button feature requires `RPi.GPIO` which is included in `requirements.txt`:
 ```bash
-cd ~/retrosPiCam/pi-server
+cd ~/RetrosPiCam/pi-server
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
@@ -107,7 +107,7 @@ Press the button and watch for:
 ### Button Not Responding
 1. **Check wiring**: Use a multimeter to verify continuity when button is pressed
 2. **Check GPIO permissions**: Ensure user has GPIO access (`sudo usermod -a -G gpio $USER`)
-3. **Verify configuration**: `cat ~/retrosPiCam/pi-server/config.json | grep shutter`
+3. **Verify configuration**: `cat ~/RetrosPiCam/pi-server/config.json | grep shutter`
 4. **Check logs**: `sudo journalctl -u retrospicam -f`
 
 ### Wrong GPIO Pin

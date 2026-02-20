@@ -10,7 +10,7 @@ output_folder = "retrospicam_icons"
 sizes = [32, 64, 128, 256, 512, 1024]
 
 # Destination files to update
-IOS_APPICON = "../ios/retrosPiCam/Images.xcassets/AppIcon.appiconset/App-Icon-1024x1024@1x.png"
+IOS_APPICON = "../ios/RetrosPiCam/Images.xcassets/AppIcon.appiconset/App-Icon-1024x1024@1x.png"
 EXPO_ICON   = "retrospicam_icon_1024.png"
 
 # ==== CREATE OUTPUT FOLDER ====

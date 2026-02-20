@@ -1,5 +1,5 @@
 #!/bin/bash
-# Deploy retrosPiCam pi-server to Raspberry Pi
+# Deploy RetrosPiCam pi-server to Raspberry Pi
 
 # Configuration - Set these via environment variables:
 #   export PI_HOST=192.168.68.71
@@ -17,7 +17,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-echo -e "${GREEN}=== retrosPiCam Deployment Script ===${NC}"
+echo -e "${GREEN}=== RetrosPiCam Deployment Script ===${NC}"
 echo ""
 echo "Target: ${PI_USER}@${PI_HOST}:${PI_PATH}"
 echo ""

@@ -1,4 +1,4 @@
-# retrosPiCam GitHub Project Board
+# RetrosPiCam GitHub Project Board
 
 This document outlines tasks and issues to populate your GitHub Project board.
 
@@ -94,7 +94,7 @@ These can be closed or moved to archive:
 ### UI/UX Improvements
 - [ ] **Animated splash screen**
   - Replace static splash with animated version
-  - retrosPiCam logo animation
+  - RetrosPiCam logo animation
   - Labels: `enhancement`, `mobile-app`, `ui`
 
 - [ ] **Improve connection error handling**

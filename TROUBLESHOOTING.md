@@ -1,4 +1,4 @@
-# retrosPiCam Troubleshooting Guide
+# RetrosPiCam Troubleshooting Guide
 
 ## USB Camera on Pi Zero 2 W
 

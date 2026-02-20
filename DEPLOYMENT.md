@@ -25,7 +25,7 @@ The script will:
 
 ### Option A: Using rsync (Recommended)
 ```bash
-# From your Mac, in the retrosPiCam directory
+# From your Mac, in the RetrosPiCam directory
 rsync -avz --progress \
     --exclude='.venv' \
     --exclude='__pycache__' \
@@ -49,7 +49,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000  # Start new
 ### Option B: Using scp
 ```bash
 # From your Mac
-cd /Users/fvm3/Projects/retrosPiCam
+cd /Users/fvm3/Projects/RetrosPiCam
 scp pi-server/*.py pi@raspberrypi.local:~/retrospicam/
 scp pi-server/config.json pi@raspberrypi.local:~/retrospicam/
 scp pi-server/requirements.txt pi@raspberrypi.local:~/retrospicam/
@@ -169,7 +169,7 @@ sudo nano /etc/systemd/system/retrospicam.service
 Add:
 ```ini
 [Unit]
-Description=retrosPiCam Server
+Description=RetrosPiCam Server
 After=network.target
 
 [Service]

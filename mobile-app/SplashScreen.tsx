@@ -23,7 +23,7 @@ export default function SplashScreen() {
           style={styles.logo}
           resizeMode="contain"
         />
-        <Text style={styles.appName}>retrosPiCam</Text>
+        <Text style={styles.appName}>RetrosPiCam</Text>
         <Animated.Text style={[styles.tagline, { opacity: fadeAnim }]}>
           Analog looks. Digital vigilance.
         </Animated.Text>

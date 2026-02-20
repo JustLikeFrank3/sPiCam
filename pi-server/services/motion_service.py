@@ -145,7 +145,7 @@ class MotionService:
             target=self.send_push_notification_sync,
             args=(
                 "Motion Test",
-                "retrosPiCam test notification. This confirms push delivery.",
+                "RetrosPiCam test notification. This confirms push delivery.",
                 {"type": "motion_test"},
             ),
             daemon=True,
@@ -200,7 +200,7 @@ class MotionService:
                             target=self.send_push_notification_sync,
                             args=(
                                 "Motion Detected",
-                                "retrosPiCam detected motion. Tap to start recording.",
+                                "RetrosPiCam detected motion. Tap to start recording.",
                                 {"type": "motion_detected"},
                             ),
                             daemon=True,
