@@ -1,34 +1,34 @@
 {
   "expo": {
-    "name": "sPiCam",
-    "slug": "spicam",
+    "name": "RetrosPiCam",
+    "slug": "retrospicam",
     "version": "1.2.2",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
-    "icon": "./assets/spicam_icon_1024.png",
+    "icon": "./assets/retrospicam_icon_1024.png",
     "splash": {
-      "image": "./assets/spicam_icon_1024.png",
+      "image": "./assets/retrospicam_icon_1024.png",
       "resizeMode": "contain",
       "backgroundColor": "#0f172a"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/spicam_icon_1024.png",
+        "foregroundImage": "./assets/retrospicam_icon_1024.png",
         "backgroundColor": "#0f172a"
       },
-      "package": "com.justlikefrank3.spicam"
+      "package": "com.justlikefrank3.retrospicam"
     },
     "ios": {
       "infoPlist": {
-        "NSLocalNetworkUsageDescription": "sPiCam needs local network access to connect to the camera.",
-        "NSPhotoLibraryUsageDescription": "sPiCam needs access to save captured videos and photos to your photo library.",
-        "NSPhotoLibraryAddUsageDescription": "sPiCam needs access to save captured videos and photos to your photo library.",
-        "NSUserNotificationsUsageDescription": "sPiCam needs notification access to alert you when motion is detected.",
+        "NSLocalNetworkUsageDescription": "RetrosPiCam needs local network access to connect to the camera.",
+        "NSPhotoLibraryUsageDescription": "RetrosPiCam needs access to save captured videos and photos to your photo library.",
+        "NSPhotoLibraryAddUsageDescription": "RetrosPiCam needs access to save captured videos and photos to your photo library.",
+        "NSUserNotificationsUsageDescription": "RetrosPiCam needs notification access to alert you when motion is detected.",
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
         }
       },
-      "bundleIdentifier": "com.justlikefrank3.spicam",
+      "bundleIdentifier": "com.justlikefrank3.retrospicam",
       "entitlements": {
         "aps-environment": "production"
       }
@@ -43,7 +43,7 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "79201519-b2ee-49fb-b21a-74534e9d9531"
+        "projectId": "7a7a3535-46e3-486f-bba1-1041c376a620"
       }
     },
     "owner": "justlikefrank3"

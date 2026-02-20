@@ -6,7 +6,7 @@
 ```bash
 export PI_HOST=192.168.1.100    # Or raspberrypi.local
 export PI_USER=pi
-export PI_PATH=~/spicam
+export PI_PATH=~/retrospicam
 ```
 
 ### 2. Run Deployment Script
@@ -25,21 +25,21 @@ The script will:
 
 ### Option A: Using rsync (Recommended)
 ```bash
-# From your Mac, in the sPiCam directory
+# From your Mac, in the RetrosPiCam directory
 rsync -avz --progress \
     --exclude='.venv' \
     --exclude='__pycache__' \
     --exclude='*.pyc' \
     --exclude='.env' \
     --exclude='media/*' \
-    pi-server/ pi@raspberrypi.local:~/spicam/
+    pi-server/ pi@raspberrypi.local:~/retrospicam/
 ```
 
 Then SSH in and restart:
 ```bash
 ssh pi@raspberrypi.local
-cd ~/spicam
-sudo systemctl restart spicam.service  # If using systemd
+cd ~/retrospicam
+sudo systemctl restart retrospicam.service  # If using systemd
 # OR
 pkill -f "uvicorn main:app"  # Kill old process
 source .venv/bin/activate
@@ -49,10 +49,10 @@ uvicorn main:app --host 0.0.0.0 --port 8000  # Start new
 ### Option B: Using scp
 ```bash
 # From your Mac
-cd /Users/fvm3/Projects/sPiCam
-scp pi-server/*.py pi@raspberrypi.local:~/spicam/
-scp pi-server/config.json pi@raspberrypi.local:~/spicam/
-scp pi-server/requirements.txt pi@raspberrypi.local:~/spicam/
+cd /Users/fvm3/Projects/RetrosPiCam
+scp pi-server/*.py pi@raspberrypi.local:~/retrospicam/
+scp pi-server/config.json pi@raspberrypi.local:~/retrospicam/
+scp pi-server/requirements.txt pi@raspberrypi.local:~/retrospicam/
 ```
 
 ### Option C: Using Git
@@ -65,16 +65,16 @@ git push origin main
 
 # On Pi
 ssh pi@raspberrypi.local
-cd ~/spicam
+cd ~/retrospicam
 git pull
-sudo systemctl restart spicam.service
+sudo systemctl restart retrospicam.service
 ```
 
 ### Option D: Direct Edit on Pi
 SSH into the Pi and edit files directly:
 ```bash
 ssh pi@raspberrypi.local
-cd ~/spicam
+cd ~/retrospicam
 nano main.py  # Edit the files manually
 ```
 
@@ -91,13 +91,13 @@ ps aux | grep uvicorn
 ### Check systemd service status
 ```bash
 ssh pi@raspberrypi.local
-sudo systemctl status spicam.service
+sudo systemctl status retrospicam.service
 ```
 
 ### Monitor logs
 ```bash
 ssh pi@raspberrypi.local
-journalctl -u spicam.service -f
+journalctl -u retrospicam.service -f
 ```
 
 ### Test the API
@@ -123,8 +123,8 @@ If this is the first deployment:
 ### 1. Create directory and venv on Pi
 ```bash
 ssh pi@raspberrypi.local
-mkdir -p ~/spicam
-cd ~/spicam
+mkdir -p ~/retrospicam
+cd ~/retrospicam
 python3 -m venv .venv
 source .venv/bin/activate
 ```
@@ -134,7 +134,7 @@ source .venv/bin/activate
 ### 3. Install dependencies
 ```bash
 ssh pi@raspberrypi.local
-cd ~/spicam
+cd ~/retrospicam
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
@@ -142,7 +142,7 @@ pip install -r requirements.txt
 ### 4. Create config
 ```bash
 # Copy the optimized config
-cat > ~/spicam/config.json << 'EOF'
+cat > ~/retrospicam/config.json << 'EOF'
 {
   "camera_source": "usb",
   "usb_camera_device": "/dev/video2",
@@ -156,27 +156,27 @@ EOF
 
 ### 5. Start server manually (test)
 ```bash
-cd ~/spicam
+cd ~/retrospicam
 source .venv/bin/activate
 uvicorn main:app --host 0.0.0.0 --port 8000
 ```
 
 ### 6. Set up systemd service (optional)
 ```bash
-sudo nano /etc/systemd/system/spicam.service
+sudo nano /etc/systemd/system/retrospicam.service
 ```
 
 Add:
 ```ini
 [Unit]
-Description=sPiCam Server
+Description=RetrosPiCam Server
 After=network.target
 
 [Service]
 Type=simple
 User=pi
-WorkingDirectory=/home/pi/spicam
-ExecStart=/home/pi/spicam/.venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
+WorkingDirectory=/home/pi/retrospicam
+ExecStart=/home/pi/retrospicam/.venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
 Restart=always
 RestartSec=10
 
@@ -187,9 +187,9 @@ WantedBy=multi-user.target
 Enable and start:
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable spicam.service
-sudo systemctl start spicam.service
-sudo systemctl status spicam.service
+sudo systemctl enable retrospicam.service
+sudo systemctl start retrospicam.service
+sudo systemctl status retrospicam.service
 ```
 
 ---
@@ -198,7 +198,7 @@ sudo systemctl status spicam.service
 
 If you only want to update config.json:
 ```bash
-scp pi-server/config.json pi@raspberrypi.local:~/spicam/
+scp pi-server/config.json pi@raspberrypi.local:~/retrospicam/
 ```
 
 The server will reload it on next restart.
@@ -214,17 +214,17 @@ The server will reload it on next restart.
 
 ### Permission denied
 - Check SSH key is set up, or use password authentication
-- Verify user has permissions: `ls -la ~/spicam`
+- Verify user has permissions: `ls -la ~/retrospicam`
 
 ### Files not updating
 - Make sure you're syncing to correct path
 - Check disk space on Pi: `df -h`
-- Verify files ownership: `ls -la ~/spicam`
+- Verify files ownership: `ls -la ~/retrospicam`
 
 ### Dependencies missing
 ```bash
 ssh pi@raspberrypi.local
-cd ~/spicam
+cd ~/retrospicam
 source .venv/bin/activate
 pip install -r requirements.txt --upgrade
 ```

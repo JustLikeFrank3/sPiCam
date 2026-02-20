@@ -1,4 +1,4 @@
-# sPiCam GitHub Project Board
+# RetrosPiCam GitHub Project Board
 
 This document outlines tasks and issues to populate your GitHub Project board.
 
@@ -15,7 +15,7 @@ These can be closed or moved to archive:
 
 ### Infrastructure & Deployment
 - [x] **Configure systemd auto-start service**
-  - Created `/etc/systemd/system/spicam.service`
+  - Created `/etc/systemd/system/retrospicam.service`
   - Server now starts automatically on Pi boot
   - Updated README with setup instructions
 
@@ -61,7 +61,7 @@ These can be closed or moved to archive:
 - [ ] **Monitor TestFlight submission**
   - Status: Waiting for EAS outage to resolve
   - Submission ID: 2b453ba6-47f9-4137-9200-06cfd3d2e3c9
-  - Track: https://expo.dev/accounts/justlikefrank3/projects/spicam/submissions/2b453ba6-47f9-4137-9200-06cfd3d2e3c9
+  - Track: https://expo.dev/accounts/justlikefrank3/projects/retrospicam/submissions/2b453ba6-47f9-4137-9200-06cfd3d2e3c9
   - Next: Wait for Apple review (24-48h)
 
 - [ ] **Add TestFlight beta testers**
@@ -94,7 +94,7 @@ These can be closed or moved to archive:
 ### UI/UX Improvements
 - [ ] **Animated splash screen**
   - Replace static splash with animated version
-  - sPiCam logo animation
+  - RetrosPiCam logo animation
   - Labels: `enhancement`, `mobile-app`, `ui`
 
 - [ ] **Improve connection error handling**

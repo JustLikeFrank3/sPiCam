@@ -81,8 +81,8 @@ export default function MainDashboard({
   return (
     <ScrollView contentContainerStyle={styles.scrollContent}>
       <View style={styles.header}>
-        <Image source={require('../../assets/spicam_icons/icon_512.png')} style={styles.logo} resizeMode="contain" />
-        <Text style={styles.title}>sPiCam</Text>
+        <Image source={require('../../assets/retrospicam_icons/icon_512.png')} style={styles.logo} resizeMode="contain" />
+        <Text style={styles.title}>RetrosPiCam</Text>
       </View>
 
       <View style={styles.inputRow}>

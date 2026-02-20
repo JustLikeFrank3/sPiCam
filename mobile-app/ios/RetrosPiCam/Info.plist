@@ -7,7 +7,7 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>$(DEVELOPMENT_LANGUAGE)</string>
     <key>CFBundleDisplayName</key>
-    <string>sPiCam</string>
+    <string>RetrosPiCam</string>
     <key>CFBundleExecutable</key>
     <string>$(EXECUTABLE_NAME)</string>
     <key>CFBundleIdentifier</key>
@@ -27,7 +27,7 @@
       <dict>
         <key>CFBundleURLSchemes</key>
         <array>
-          <string>com.justlikefrank3.spicam</string>
+          <string>com.justlikefrank3.retrospicam</string>
         </array>
       </dict>
     </array>
@@ -43,13 +43,13 @@
       <true/>
     </dict>
     <key>NSLocalNetworkUsageDescription</key>
-    <string>sPiCam needs local network access to connect to the camera.</string>
+    <string>RetrosPiCam needs local network access to connect to the camera.</string>
     <key>NSPhotoLibraryAddUsageDescription</key>
-    <string>sPiCam needs access to save captured videos and photos to your photo library.</string>
+    <string>RetrosPiCam needs access to save captured videos and photos to your photo library.</string>
     <key>NSPhotoLibraryUsageDescription</key>
-    <string>sPiCam needs access to save captured videos and photos to your photo library.</string>
+    <string>RetrosPiCam needs access to save captured videos and photos to your photo library.</string>
     <key>NSUserNotificationsUsageDescription</key>
-    <string>sPiCam needs notification access to alert you when motion is detected.</string>
+    <string>RetrosPiCam needs notification access to alert you when motion is detected.</string>
     <key>RCTNewArchEnabled</key>
     <true/>
     <key>UILaunchStoryboardName</key>

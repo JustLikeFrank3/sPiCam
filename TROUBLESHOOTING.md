@@ -1,4 +1,4 @@
-# sPiCam Troubleshooting Guide
+# RetrosPiCam Troubleshooting Guide
 
 ## USB Camera on Pi Zero 2 W
 
@@ -110,7 +110,7 @@ ffmpeg -f v4l2 -input_format mjpeg -video_size 640x480 -i /dev/video2 -frames:v 
 
 Check server logs:
 ```bash
-journalctl -u spicam.service -f  # If running as service
+journalctl -u retrospicam.service -f  # If running as service
 # OR
 tail -f /path/to/log
 ```

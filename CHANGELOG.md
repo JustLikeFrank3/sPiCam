@@ -1,10 +1,10 @@
 # Changelog
 
-All notable changes to sPiCam are documented here.
+All notable changes to RetrosPiCam are documented here.
 
 ---
 
-## [Unreleased] - 2026-02-18
+## [Unreleased] - 2026-02-19
 
 ### Added
 - **GitHub Actions CI** — runs `pytest` (Python 3.11) + `tsc --noEmit` (Node 20) on every push and PR to `main`
@@ -13,16 +13,19 @@ All notable changes to sPiCam are documented here.
 - `pi-server/requirements-dev.txt` — CI-safe dependency set (excludes `picamera2`, `RPi.GPIO`, etc.)
 
 ### Changed
-- **App icon redesign** — SVG source (`spicam_icon.svg`) updated with white glare highlights on raspberry; all PNG icon files regenerated from SVG with transparent background
+- **Full rebrand: sPiCam → RetrosPiCam** — renamed Xcode project, scheme, target, workspace file, bridging header, and entitlements; all folder references updated
+- **New EAS project** — `@justlikefrank3/retrospicam` (ID: `7a7a3535-46e3-486f-bba1-1041c376a620`) replaces the old `spicam` project; existing distribution cert, provisioning profile, push key, and ASC API key all reused
+- **App icon redesign** — SVG source (`retrospicam_icon.svg`) updated with white glare highlights on raspberry; all PNG icon files regenerated from SVG with transparent background
 - **Liquid Glass ready** — transparent icon background allows iOS 26 Liquid Glass material to render correctly through the icon
 - Icon generation script (`generate_icons.py`) now renders directly from SVG via `cairosvg` instead of relying on a pre-baked PNG
-- Updated: `spicam_icon_1024.png`, `App-Icon-1024x1024@1x.png` (iOS), and all sizes in `spicam_icons/`
+- Updated: `retrospicam_icon_1024.png`, `App-Icon-1024x1024@1x.png` (iOS), and all sizes in `retrospicam_icons/`
 
 ### Fixed
 - **Build number drift** — `eas.json` now sets `appVersionSource: "remote"` so EAS owns the build counter; `app.json` `buildNumber` bumped to `8` to stay ahead of last submitted build (`7`)
+- **Metro bundle syntax error** — missing comma in `Alert.alert()` call in `src/utils/pushNotifications.ts` caused EAS build #9 to fail; fixed and resubmitted as build #10
 
 ### Build
-- `buildNumber` set to `8`; EAS remote counter takes precedence going forward
+- Build `#10` — first successful RetrosPiCam build; submitted to TestFlight via EAS auto-submit
 
 ---
 

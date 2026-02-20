@@ -1,6 +1,6 @@
 # Physical Shutter Button Setup
 
-This guide explains how to add a physical shutter button to your sPiCam for hands-free photo and video capture.
+This guide explains how to add a physical shutter button to your RetrosPiCam for hands-free photo and video capture.
 
 ## Hardware Requirements
 
@@ -56,14 +56,14 @@ export SHUTTER_BUTTON_GPIO=17
 ### 2. Install Dependencies
 The button feature requires `RPi.GPIO` which is included in `requirements.txt`:
 ```bash
-cd ~/sPiCam/pi-server
+cd ~/RetrosPiCam/pi-server
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
 ### 3. Restart the Service
 ```bash
-sudo systemctl restart spicam
+sudo systemctl restart retrospicam
 ```
 
 ## Button Behavior
@@ -86,7 +86,7 @@ The button uses **press duration** to trigger different actions:
 ### 1. Check Logs
 ```bash
 # Watch server logs
-sudo journalctl -u spicam -f
+sudo journalctl -u retrospicam -f
 ```
 
 You should see:
@@ -107,13 +107,13 @@ Press the button and watch for:
 ### Button Not Responding
 1. **Check wiring**: Use a multimeter to verify continuity when button is pressed
 2. **Check GPIO permissions**: Ensure user has GPIO access (`sudo usermod -a -G gpio $USER`)
-3. **Verify configuration**: `cat ~/sPiCam/pi-server/config.json | grep shutter`
-4. **Check logs**: `sudo journalctl -u spicam -f`
+3. **Verify configuration**: `cat ~/RetrosPiCam/pi-server/config.json | grep shutter`
+4. **Check logs**: `sudo journalctl -u retrospicam -f`
 
 ### Wrong GPIO Pin
 If GPIO 17 conflicts with your setup, change the pin:
 1. Edit `config.json` → set `"shutter_button_gpio": 22` (or another available pin)
-2. Restart service: `sudo systemctl restart spicam`
+2. Restart service: `sudo systemctl restart retrospicam`
 
 ### GPIO Already in Use
 If you see "GPIO already in use" errors:
