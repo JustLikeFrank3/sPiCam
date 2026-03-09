@@ -19,6 +19,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Spacing.md,
     paddingHorizontal: 4,
+    position: 'relative',
   },
   logo: {
     width: 40,
@@ -29,7 +30,10 @@ export const styles = StyleSheet.create({
     marginRight: Spacing.md,
   },
   title: {
-    flex: 1,
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    textAlign: 'center',
     color: Colors.text,
     fontSize: 22,
     fontWeight: '600',
@@ -40,6 +44,14 @@ export const styles = StyleSheet.create({
     marginLeft: Spacing.sm,
   },
   settingsIcon: {
+    fontSize: 22,
+    color: Colors.dimmed,
+  },
+  notificationsButton: {
+    padding: Spacing.xs,
+    marginLeft: 'auto',
+  },
+  notificationsIcon: {
     fontSize: 22,
     color: Colors.dimmed,
   },

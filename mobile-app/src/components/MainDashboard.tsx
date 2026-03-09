@@ -3,12 +3,6 @@ import { Image, Pressable, ScrollView, Text, View } from 'react-native'
 import { WebView } from 'react-native-webview'
 import { styles } from '../styles/appStyles'
 
-type NotificationItem = {
-  message: string
-  kind?: string
-  timestamp: string
-}
-
 type Props = {
   appState: string
   isAppActive: boolean
@@ -17,6 +11,7 @@ type Props = {
   baseUrl: string
   onChangeBaseUrl: (url: string) => void
   onOpenSettings: () => void
+  onOpenNotifications: () => void
   onStreamError: (message: string) => void
   onReloadStream: () => void
   streamError: string | null
@@ -30,10 +25,6 @@ type Props = {
   recordDuration: number
   onSetRecordDuration: (duration: number) => void
   onStartRecording: () => void
-  notifications: NotificationItem[]
-  notificationsUpdatedAt: Date | null
-  onRefreshNotifications: () => void
-  status: string
 }
 
 export default function MainDashboard({
@@ -44,6 +35,7 @@ export default function MainDashboard({
   baseUrl,
   onChangeBaseUrl,
   onOpenSettings,
+  onOpenNotifications,
   onStreamError,
   onReloadStream,
   streamError,
@@ -57,16 +49,15 @@ export default function MainDashboard({
   recordDuration,
   onSetRecordDuration,
   onStartRecording,
-  notifications,
-  notificationsUpdatedAt,
-  onRefreshNotifications,
-  status,
 }: Readonly<Props>) {
   return (
     <ScrollView contentContainerStyle={styles.scrollContent}>
       <View style={styles.header}>
         <Image source={require('../../assets/retrospicam_icons/icon_512.png')} style={styles.logo} resizeMode="contain" />
         <Text style={styles.title}>RetrosPiCam</Text>
+        <Pressable style={styles.notificationsButton} onPress={onOpenNotifications} hitSlop={8}>
+          <Text style={styles.notificationsIcon}>🔔</Text>
+        </Pressable>
         <Pressable style={styles.settingsButton} onPress={onOpenSettings} hitSlop={8}>
           <Text style={styles.settingsIcon}>⚙</Text>
         </Pressable>
@@ -150,29 +141,6 @@ export default function MainDashboard({
           <Text style={styles.buttonText}>{isRecording ? 'Recording...' : 'Start Recording'}</Text>
         </Pressable>
       </View>
-
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Notifications</Text>
-        <Pressable onPress={onRefreshNotifications}>
-          <Text style={styles.link}>Refresh</Text>
-        </Pressable>
-      </View>
-      <View style={styles.notificationsContainer}>
-        <Text style={styles.notificationsMeta}>
-          {notificationsUpdatedAt ? `Last updated ${notificationsUpdatedAt.toLocaleString()}` : 'Not loaded yet'}
-        </Text>
-        {notifications.length > 0 ? (
-          notifications.slice(0, 5).map(item => (
-            <Text key={`${item.timestamp}-${item.message}`} style={styles.notificationText}>
-              {new Date(item.timestamp).toLocaleString()} · {item.message}
-            </Text>
-          ))
-        ) : (
-          <Text style={styles.emptyText}>No notifications yet.</Text>
-        )}
-      </View>
-
-      <Text style={styles.status}>{status}</Text>
     </ScrollView>
   )
 }

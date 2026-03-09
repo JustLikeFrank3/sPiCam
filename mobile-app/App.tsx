@@ -12,6 +12,7 @@ import GalleryScreen from './src/components/GalleryScreen'
 import MediaPreviewScreen from './src/components/MediaPreviewScreen'
 import MainDashboard from './src/components/MainDashboard'
 import SettingsModal from './src/components/SettingsModal'
+import NotificationsModal from './src/components/NotificationsModal'
 import { styles } from './src/styles/appStyles'
 import { canSaveToPhotos, formatCustomBaseUrl, getAzureMediaUrl, isRawVideoFile } from './src/utils/media'
 import { checkConnection as checkConnectionRequest, retryConnection as retryConnectionRequest } from './src/utils/connection'
@@ -54,6 +55,7 @@ function AppContent() {
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'failed'>('checking')
   const [showConnectionHelp, setShowConnectionHelp] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [showNotifications, setShowNotifications] = useState(false)
   const [customIp, setCustomIp] = useState('')
   const isConnectionCheckInFlight = useRef(false)
 
@@ -430,6 +432,14 @@ function AppContent() {
         onClose={() => setShowSettings(false)}
       />
 
+      <NotificationsModal
+        visible={showNotifications}
+        notifications={notifications}
+        notificationsUpdatedAt={notificationsUpdatedAt}
+        onRefresh={() => { void fetchNotifications() }}
+        onClose={() => setShowNotifications(false)}
+      />
+
       <MainDashboard
         appState={appState}
         isAppActive={isAppActive}
@@ -438,6 +448,7 @@ function AppContent() {
         baseUrl={baseUrl}
         onChangeBaseUrl={setBaseUrl}
         onOpenSettings={() => setShowSettings(true)}
+        onOpenNotifications={() => setShowNotifications(true)}
         onStreamError={message => {
           log('Stream error', message)
           setStreamError(message)
@@ -464,12 +475,6 @@ function AppContent() {
         onStartRecording={() => {
           void startRecording(recordDuration)
         }}
-        notifications={notifications}
-        notificationsUpdatedAt={notificationsUpdatedAt}
-        onRefreshNotifications={() => {
-          void fetchNotifications()
-        }}
-        status={status}
       />
     </SafeAreaView>
   )
