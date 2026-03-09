@@ -43,17 +43,9 @@ export const styles = StyleSheet.create({
     padding: Spacing.xs,
     marginLeft: Spacing.sm,
   },
-  settingsIcon: {
-    fontSize: 22,
-    color: Colors.dimmed,
-  },
   notificationsButton: {
     padding: Spacing.xs,
     marginLeft: 'auto',
-  },
-  notificationsIcon: {
-    fontSize: 22,
-    color: Colors.dimmed,
   },
   inputRow: {
     marginBottom: Spacing.md,

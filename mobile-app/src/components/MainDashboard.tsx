@@ -1,7 +1,9 @@
 import React from 'react'
 import { Image, Pressable, ScrollView, Text, View } from 'react-native'
 import { WebView } from 'react-native-webview'
+import { Ionicons } from '@expo/vector-icons'
 import { styles } from '../styles/appStyles'
+import { Colors } from '../styles/colors'
 
 type Props = {
   appState: string
@@ -56,10 +58,10 @@ export default function MainDashboard({
         <Image source={require('../../assets/retrospicam_icons/icon_512.png')} style={styles.logo} resizeMode="contain" />
         <Text style={styles.title}>RetrosPiCam</Text>
         <Pressable style={styles.notificationsButton} onPress={onOpenNotifications} hitSlop={8}>
-          <Text style={styles.notificationsIcon}>🔔</Text>
+          <Ionicons name="notifications-outline" size={24} color={Colors.dimmed} />
         </Pressable>
         <Pressable style={styles.settingsButton} onPress={onOpenSettings} hitSlop={8}>
-          <Text style={styles.settingsIcon}>⚙</Text>
+          <Ionicons name="settings-outline" size={24} color={Colors.dimmed} />
         </Pressable>
       </View>
 
