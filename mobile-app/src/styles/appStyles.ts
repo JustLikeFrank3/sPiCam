@@ -17,21 +17,31 @@ export const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.md,
     marginBottom: Spacing.md,
+    paddingHorizontal: 4,
   },
   logo: {
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
     borderRadius: BorderRadius.sm,
     borderWidth: 1,
     borderColor: Colors.primary,
+    marginRight: Spacing.md,
   },
   title: {
+    flex: 1,
     color: Colors.text,
     fontSize: 22,
     fontWeight: '600',
     letterSpacing: -0.3,
+  },
+  settingsButton: {
+    padding: Spacing.xs,
+    marginLeft: Spacing.sm,
+  },
+  settingsIcon: {
+    fontSize: 22,
+    color: Colors.dimmed,
   },
   inputRow: {
     marginBottom: Spacing.md,

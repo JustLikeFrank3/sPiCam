@@ -11,6 +11,7 @@ import ConnectionSetupModal from './src/components/ConnectionSetupModal'
 import GalleryScreen from './src/components/GalleryScreen'
 import MediaPreviewScreen from './src/components/MediaPreviewScreen'
 import MainDashboard from './src/components/MainDashboard'
+import SettingsModal from './src/components/SettingsModal'
 import { styles } from './src/styles/appStyles'
 import { canSaveToPhotos, formatCustomBaseUrl, getAzureMediaUrl, isRawVideoFile } from './src/utils/media'
 import { checkConnection as checkConnectionRequest, retryConnection as retryConnectionRequest } from './src/utils/connection'
@@ -53,6 +54,7 @@ function AppContent() {
   const [streamError, setStreamError] = useState<string | null>(null)
   const [connectionStatus, setConnectionStatus] = useState<'checking' | 'connected' | 'failed'>('checking')
   const [showConnectionHelp, setShowConnectionHelp] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
   const [customIp, setCustomIp] = useState('')
   const isConnectionCheckInFlight = useRef(false)
 
@@ -415,6 +417,13 @@ function AppContent() {
         }}
       />
 
+      <SettingsModal
+        visible={showSettings}
+        baseUrl={baseUrl}
+        onChangeBaseUrl={setBaseUrl}
+        onClose={() => setShowSettings(false)}
+      />
+
       <MainDashboard
         appState={appState}
         isAppActive={isAppActive}
@@ -422,6 +431,7 @@ function AppContent() {
         streamKey={streamKey}
         baseUrl={baseUrl}
         onChangeBaseUrl={setBaseUrl}
+        onOpenSettings={() => setShowSettings(true)}
         onStreamError={message => {
           log('Stream error', message)
           setStreamError(message)

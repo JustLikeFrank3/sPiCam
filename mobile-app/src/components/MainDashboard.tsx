@@ -16,6 +16,7 @@ type Props = {
   streamKey: number
   baseUrl: string
   onChangeBaseUrl: (url: string) => void
+  onOpenSettings: () => void
   onStreamError: (message: string) => void
   onReloadStream: () => void
   streamError: string | null
@@ -51,6 +52,7 @@ export default function MainDashboard({
   streamKey,
   baseUrl,
   onChangeBaseUrl,
+  onOpenSettings,
   onStreamError,
   onReloadStream,
   streamError,
@@ -77,23 +79,16 @@ export default function MainDashboard({
   notificationsUpdatedAt,
   onRefreshNotifications,
   status,
+  onOpenSettings,
 }: Readonly<Props>) {
   return (
     <ScrollView contentContainerStyle={styles.scrollContent}>
       <View style={styles.header}>
         <Image source={require('../../assets/retrospicam_icons/icon_512.png')} style={styles.logo} resizeMode="contain" />
         <Text style={styles.title}>RetrosPiCam</Text>
-      </View>
-
-      <View style={styles.inputRow}>
-        <Text style={styles.label}>Base URL</Text>
-        <TextInput
-          style={styles.input}
-          value={baseUrl}
-          onChangeText={onChangeBaseUrl}
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
+        <Pressable style={styles.settingsButton} onPress={onOpenSettings} hitSlop={8}>
+          <Text style={styles.settingsIcon}>⚙</Text>
+        </Pressable>
       </View>
 
       <Text style={styles.status}>App state: {appState} · Motion {isAppActive ? 'disarmed' : 'armed'}</Text>
