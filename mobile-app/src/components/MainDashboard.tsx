@@ -56,7 +56,10 @@ export default function MainDashboard({
     <ScrollView contentContainerStyle={styles.scrollContent}>
       <View style={styles.header}>
         <Image source={require('../../assets/retrospicam_icons/icon_512.png')} style={styles.logo} resizeMode="contain" />
-        <Text style={styles.title}>RetrosPiCam</Text>
+        <Text style={styles.title}>
+          <Text style={{ color: Colors.primary }}>Retro</Text>
+          <Text style={{ color: Colors.secondary }}>sPiCam</Text>
+        </Text>
         <Pressable style={styles.notificationsButton} onPress={onOpenNotifications} hitSlop={8}>
           <Ionicons name="notifications-outline" size={24} color={Colors.dimmed} />
         </Pressable>
