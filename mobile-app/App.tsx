@@ -41,7 +41,6 @@ function AppContent() {
   const [recentsFilter, setRecentsFilter] = useState<'all' | 'photos' | 'videos'>('all')
   const [notifications, setNotifications] = useState<Array<{ message: string; kind?: string; timestamp: string }>>([])
   const [notificationsUpdatedAt, setNotificationsUpdatedAt] = useState<Date | null>(null)
-  const [motionSettingsCollapsed, setMotionSettingsCollapsed] = useState(true)
   const [motionThreshold, setMotionThreshold] = useState(4)
   const [motionMinArea, setMotionMinArea] = useState(10)
   const [notificationCooldown, setNotificationCooldown] = useState(30)
@@ -421,6 +420,13 @@ function AppContent() {
         visible={showSettings}
         baseUrl={baseUrl}
         onChangeBaseUrl={setBaseUrl}
+        motionThreshold={motionThreshold}
+        onChangeMotionThreshold={setMotionThreshold}
+        motionMinArea={motionMinArea}
+        onChangeMotionMinArea={setMotionMinArea}
+        notificationCooldown={notificationCooldown}
+        onChangeNotificationCooldown={setNotificationCooldown}
+        onUpdateMotionSettings={() => { void updateMotionSettings() }}
         onClose={() => setShowSettings(false)}
       />
 
@@ -438,17 +444,6 @@ function AppContent() {
         }}
         onReloadStream={reloadStream}
         streamError={streamError}
-        motionSettingsCollapsed={motionSettingsCollapsed}
-        onToggleMotionSettings={() => setMotionSettingsCollapsed(prev => !prev)}
-        motionThreshold={motionThreshold}
-        onChangeMotionThreshold={setMotionThreshold}
-        motionMinArea={motionMinArea}
-        onChangeMotionMinArea={setMotionMinArea}
-        notificationCooldown={notificationCooldown}
-        onChangeNotificationCooldown={setNotificationCooldown}
-        onUpdateMotionSettings={() => {
-          void updateMotionSettings()
-        }}
         eventsCount={events.length}
         onRefreshEvents={() => {
           void fetchEvents()

@@ -1,5 +1,5 @@
 import React from 'react'
-import { Image, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
+import { Image, Pressable, ScrollView, Text, View } from 'react-native'
 import { WebView } from 'react-native-webview'
 import { styles } from '../styles/appStyles'
 
@@ -20,15 +20,6 @@ type Props = {
   onStreamError: (message: string) => void
   onReloadStream: () => void
   streamError: string | null
-  motionSettingsCollapsed: boolean
-  onToggleMotionSettings: () => void
-  motionThreshold: number
-  onChangeMotionThreshold: (value: number) => void
-  motionMinArea: number
-  onChangeMotionMinArea: (value: number) => void
-  notificationCooldown: number
-  onChangeNotificationCooldown: (value: number) => void
-  onUpdateMotionSettings: () => void
   eventsCount: number
   onRefreshEvents: () => void
   onOpenRecents: () => void
@@ -123,54 +114,6 @@ export default function MainDashboard({
         <Text style={styles.streamReloadText}>Reload stream</Text>
       </Pressable>
       {streamError ? <Text style={styles.streamError}>{streamError}</Text> : null}
-
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Motion Settings</Text>
-        <Pressable onPress={onToggleMotionSettings}>
-          <Text style={styles.link}>{motionSettingsCollapsed ? 'Show' : 'Hide'}</Text>
-        </Pressable>
-      </View>
-
-      {!motionSettingsCollapsed && (
-        <>
-          <View style={styles.inputRow}>
-            <Text style={styles.inputLabel}>Threshold (1-50):</Text>
-            <TextInput
-              style={styles.input}
-              value={String(motionThreshold)}
-              onChangeText={text => onChangeMotionThreshold(Number(text) || 1)}
-              keyboardType="numeric"
-              placeholder="4"
-            />
-          </View>
-
-          <View style={styles.inputRow}>
-            <Text style={styles.inputLabel}>Min Area (5-1000):</Text>
-            <TextInput
-              style={styles.input}
-              value={String(motionMinArea)}
-              onChangeText={text => onChangeMotionMinArea(Number(text) || 5)}
-              keyboardType="numeric"
-              placeholder="10"
-            />
-          </View>
-
-          <View style={styles.inputRow}>
-            <Text style={styles.inputLabel}>Cooldown (5-300s):</Text>
-            <TextInput
-              style={styles.input}
-              value={String(notificationCooldown)}
-              onChangeText={text => onChangeNotificationCooldown(Number(text) || 5)}
-              keyboardType="numeric"
-              placeholder="60"
-            />
-          </View>
-
-          <Pressable style={styles.updateButton} onPress={onUpdateMotionSettings}>
-            <Text style={styles.updateButtonText}>Update Settings</Text>
-          </Pressable>
-        </>
-      )}
 
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Recent Events</Text>
