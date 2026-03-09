@@ -1,7 +1,8 @@
 import React, { useEffect, useRef } from 'react'
 import { View, Text, Image, StyleSheet, Animated, Dimensions } from 'react-native'
+import { Colors } from './src/styles/colors'
 
-const { width, height } = Dimensions.get('window')
+const { width } = Dimensions.get('window')
 
 export default function SplashScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current
@@ -23,7 +24,10 @@ export default function SplashScreen() {
           style={styles.logo}
           resizeMode="contain"
         />
-        <Text style={styles.appName}>RetrosPiCam</Text>
+        <Text style={styles.appName}>
+          <Text style={{ color: Colors.primary }}>Retro</Text>
+          <Text style={{ color: Colors.secondary }}>sPiCam</Text>
+        </Text>
         <Animated.Text style={[styles.tagline, { opacity: fadeAnim }]}>
           Analog looks. Digital vigilance.
         </Animated.Text>
@@ -35,7 +39,7 @@ export default function SplashScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#121212',
+    backgroundColor: Colors.bgDark,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -51,15 +55,14 @@ const styles = StyleSheet.create({
   appName: {
     fontSize: 36,
     fontWeight: '700',
-    color: '#F4F1EC',
     letterSpacing: 1,
     marginBottom: 16,
   },
   tagline: {
     fontSize: 16,
-    color: '#F4F1EC',
+    color: Colors.dimmed,
     letterSpacing: 0.5,
     textAlign: 'center',
-    opacity: 0.85,
   },
 })
+
