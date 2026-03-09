@@ -47,15 +47,6 @@ export default function MainDashboard({
   onStreamError,
   onReloadStream,
   streamError,
-  motionSettingsCollapsed,
-  onToggleMotionSettings,
-  motionThreshold,
-  onChangeMotionThreshold,
-  motionMinArea,
-  onChangeMotionMinArea,
-  notificationCooldown,
-  onChangeNotificationCooldown,
-  onUpdateMotionSettings,
   eventsCount,
   onRefreshEvents,
   onOpenRecents,
@@ -70,7 +61,6 @@ export default function MainDashboard({
   notificationsUpdatedAt,
   onRefreshNotifications,
   status,
-  onOpenSettings,
 }: Readonly<Props>) {
   return (
     <ScrollView contentContainerStyle={styles.scrollContent}>
