@@ -2,6 +2,7 @@ import React from 'react'
 import { ActivityIndicator, Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { styles } from '../styles/appStyles'
+import { Colors } from '../styles/colors'
 
 type ConnectionStatus = 'checking' | 'connected' | 'failed'
 
@@ -66,7 +67,7 @@ export default function ConnectionSetupModal({
                 value={customIp}
                 onChangeText={onChangeCustomIp}
                 placeholder="192.168.1.100:8000"
-                placeholderTextColor="#666"
+                placeholderTextColor={Colors.dimmed}
                 autoCapitalize="none"
                 autoCorrect={false}
               />
@@ -76,19 +77,19 @@ export default function ConnectionSetupModal({
             </View>
 
             {connectionStatus === 'checking' && (
-              <Text style={[styles.modalText, { textAlign: 'center', color: '#d1b06b' }]}>Checking connection...</Text>
+              <Text style={[styles.modalText, { textAlign: 'center', color: Colors.primary }]}>Checking connection...</Text>
             )}
             {connectionStatus === 'failed' && !isRetrying && (
-              <Text style={[styles.modalText, { textAlign: 'center', color: '#ff6b6b' }]}>Connection failed. Try again or enter custom IP.</Text>
+              <Text style={[styles.modalText, { textAlign: 'center', color: Colors.error }]}>Connection failed. Try again or enter custom IP.</Text>
             )}
             {connectionStatus === 'connected' && (
-              <Text style={[styles.modalText, { textAlign: 'center', color: '#51cf66' }]}>✓ Connected!</Text>
+              <Text style={[styles.modalText, { textAlign: 'center', color: Colors.success }]}>✓ Connected!</Text>
             )}
 
             <Pressable style={[styles.modalButtonSecondary, isRetrying && { opacity: 0.5 }]} onPress={onRetryConnection} disabled={isRetrying}>
               {isRetrying ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <ActivityIndicator color="#d1b06b" size="small" />
+                  <ActivityIndicator color={Colors.primary} size="small" />
                   <Text style={[styles.modalButtonSecondaryText, { marginLeft: 8 }]}>Connecting...</Text>
                 </View>
               ) : (

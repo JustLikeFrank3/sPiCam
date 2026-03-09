@@ -3,6 +3,7 @@ import { ActivityIndicator, Image, Pressable, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { WebView } from 'react-native-webview'
 import { styles } from '../styles/appStyles'
+import { Colors } from '../styles/colors'
 import { getAzureMediaUrl, getVideoMimeType, isRawVideoFile, isVideoFile } from '../utils/media'
 
 type Props = {
@@ -54,7 +55,7 @@ export default function MediaPreviewScreen({
       <>
         {mediaLoading && (
           <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', zIndex: 1 }}>
-            <ActivityIndicator size="large" color="#d1b06b" />
+            <ActivityIndicator size="large" color={Colors.primary} />
             <Text style={[styles.eventThumbLabel, { marginTop: 12 }]}>Loading video...</Text>
           </View>
         )}
@@ -74,7 +75,7 @@ export default function MediaPreviewScreen({
       <>
         {mediaLoading && (
           <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', zIndex: 1 }}>
-            <ActivityIndicator size="large" color="#d1b06b" />
+            <ActivityIndicator size="large" color={Colors.primary} />
             <Text style={[styles.eventThumbLabel, { marginTop: 12 }]}>Loading image...</Text>
           </View>
         )}
