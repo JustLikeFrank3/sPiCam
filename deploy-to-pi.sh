@@ -7,7 +7,7 @@
 #   export PI_PATH=~/retrospicam
 #   ./deploy-to-pi.sh
 
-PI_HOST="${PI_HOST:-192.168.68.71}"  # Local IP (use PI_HOST=100.86.177.103 for Tailscale)
+PI_HOST="${PI_HOST:-192.168.68.52}"  # Local IP (use PI_HOST=100.86.177.103 for Tailscale)
 PI_USER="${PI_USER:-fvm3}"  # Change to your Pi username
 PI_PATH="${PI_PATH:-~/pi-server}"
 
@@ -61,41 +61,75 @@ ssh "${PI_USER}@${PI_HOST}" << 'ENDSSH'
 ENDSSH
 
 echo ""
-echo -e "${YELLOW}Restarting service on Pi...${NC}"
+echo -e "${YELLOW}Patching systemd unit (rename to retrospicam.service + ExecStartPre)...${NC}"
+
+ssh "${PI_USER}@${PI_HOST}" << ENDSSH
+    PI_RESOLVED=\$(eval echo "${PI_PATH}")
+    FIRST_BOOT_SCRIPT="\${PI_RESOLVED}/scripts/first-boot.sh"
+    TARGET=/etc/systemd/system/retrospicam.service
+
+    chmod +x "\${FIRST_BOOT_SCRIPT}"
+
+    # Migrate spicam.service → retrospicam.service if needed
+    if ! systemctl list-unit-files retrospicam.service 2>/dev/null | grep -q retrospicam.service; then
+        if systemctl list-unit-files spicam.service 2>/dev/null | grep -q spicam.service; then
+            OLD_FILE=\$(systemctl show -p FragmentPath spicam.service | cut -d= -f2)
+            echo "Migrating \$OLD_FILE → \$TARGET ..."
+            sudo cp "\$OLD_FILE" "\$TARGET"
+            sudo systemctl disable spicam.service
+            sudo rm -f "\$OLD_FILE"
+            echo "✓ Renamed spicam.service → retrospicam.service"
+        else
+            echo "No known service unit found — skipping"
+        fi
+    else
+        echo "retrospicam.service already exists"
+    fi
+
+    # Ensure ExecStartPre is present in retrospicam.service
+    if [ -f "\$TARGET" ]; then
+        # Fix description if still showing old name
+        sudo sed -i "s|^Description=.*|Description=RetrosPiCam Server|" "\$TARGET"
+
+        if grep -q "^ExecStartPre=+" "\$TARGET"; then
+            echo "ExecStartPre already present with + privilege — no change needed"
+        elif grep -q "ExecStartPre" "\$TARGET"; then
+            echo "Patching ExecStartPre to add + privilege prefix ..."
+            sudo sed -i 's|^ExecStartPre=\([^+]\)|ExecStartPre=+\1|' "\$TARGET"
+            echo "✓ ExecStartPre patched with +"
+        else
+            echo "Inserting ExecStartPre=+\${FIRST_BOOT_SCRIPT} ..."
+            sudo sed -i "s|^ExecStart=|ExecStartPre=+\${FIRST_BOOT_SCRIPT}\nExecStart=|" "\$TARGET"
+            echo "✓ ExecStartPre added"
+        fi
+        sudo systemctl daemon-reload
+        sudo systemctl enable retrospicam.service
+        echo "✓ daemon-reloaded"
+    fi
+
+    # If we can reach the Pi over the network, WiFi is already configured
+    touch "\${PI_RESOLVED}/.wifi_configured"
+    echo "✓ .wifi_configured marker ensured"
+ENDSSH
+
+echo ""
+echo -e "${YELLOW}Restarting retrospicam.service on Pi...${NC}"
 
 ssh "${PI_USER}@${PI_HOST}" << 'ENDSSH'
-    cd ~/pi-server
-    
-    # Check if running as systemd service
-    if systemctl is-active --quiet retrospicam.service 2>/dev/null; then
-        echo "Restarting systemd service..."
-        sudo systemctl restart retrospicam.service
-        sudo systemctl status retrospicam.service --no-pager
-    # Check if running in screen/tmux
-    elif screen -ls | grep -q retrospicam; then
-        echo "Found screen session, sending quit command..."
-        screen -S retrospicam -X stuff "^C"
-        sleep 2
-        screen -S retrospicam -X stuff "source .venv/bin/activate && uvicorn main:app --host 0.0.0.0 --port 8000\n"
-    else
-        echo "No running service detected."
-        echo "To start manually:"
-        echo "  cd ~/retrospicam"
-        echo "  source .venv/bin/activate"
-        echo "  uvicorn main:app --host 0.0.0.0 --port 8000"
-    fi
+    sudo systemctl restart retrospicam.service
+    sudo systemctl status retrospicam.service --no-pager
 ENDSSH
 
 echo ""
 echo -e "${GREEN}=== Deployment Complete ===${NC}"
 echo ""
-echo "Key changes deployed:"
-echo "  ✓ Persistent USB camera connection (no more reopening)"
-echo "  ✓ Optimized settings (640x480@15fps)"
-echo "  ✓ Reduced motion detection CPU usage"
-echo "  ✓ Lower JPEG quality for streaming (70%)"
+echo "Changes deployed:"
+echo "  ✓ AP provisioning setup wizard (setup_service, routers/setup)"
+echo "  ✓ first-boot.sh (starts AP mode if .wifi_configured missing)"
+echo "  ✓ ExecStartPre wired into retrospicam.service"
+echo "  ✓ Hardware factory reset (shutter 10s hold / GPIO 27 pin)"
+echo "  ✓ RetrosPiCam rebranding in logs + AP SSID"
 echo ""
 echo "Monitor the server:"
 echo "  ssh ${PI_USER}@${PI_HOST}"
-echo "  htop              # Check CPU usage"
-echo "  journalctl -u retrospicam.service -f   # If running as service"
+echo "  journalctl -u retrospicam.service -f"
