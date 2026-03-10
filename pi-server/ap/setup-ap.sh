@@ -1,24 +1,36 @@
 #!/usr/bin/env bash
 # RetrosPiCam AP setup — uses NetworkManager (Pi OS Bookworm)
-# No apt install, no dhcpcd. NM handles DHCP/NAT via ipv4.method shared.
+# No apt install, no dhcpcd. NM handles DHCP/NAT automatically.
 set -euo pipefail
 
-# Remove stale AP connection if it exists
-nmcli con delete "RetrosPiCam-Setup" 2>/dev/null || true
+SSID="RetrosPiCam-Setup"
+PASSWORD="retrospicam1234"
 
-# Create hotspot — NM handles IP assignment + dnsmasq automatically
-nmcli con add \
-    type wifi \
+# Tear down any stale AP connection
+nmcli con delete "$SSID" 2>/dev/null || true
+
+# Prevent NetworkManager from auto-reconnecting home WiFi after we disconnect wlan0
+for CON in $(nmcli -t -f NAME,TYPE con show | grep ':wifi$' | cut -d: -f1); do
+    nmcli con modify "$CON" connection.autoconnect no 2>/dev/null || true
+done
+
+# Now disconnect wlan0 — NM won't fight us back
+nmcli dev disconnect wlan0 2>/dev/null || true
+sleep 1
+
+# Bring up hotspot — band bg forces 2.4 GHz so all phones can see it
+nmcli device wifi hotspot \
     ifname wlan0 \
-    con-name "RetrosPiCam-Setup" \
-    autoconnect no \
-    ssid "RetrosPiCam-Setup" \
-    mode ap \
-    wifi-sec.key-mgmt wpa-psk \
-    wifi-sec.psk "retrospicam1234" \
-    ipv4.method shared \
-    ipv4.addresses "192.168.4.1/24"
+    con-name "$SSID" \
+    ssid "$SSID" \
+    band bg \
+    password "$PASSWORD"
 
-nmcli con up "RetrosPiCam-Setup"
+# Pin static gateway IP
+nmcli con modify "$SSID" \
+    ipv4.addresses "192.168.4.1/24" \
+    ipv4.method shared
 
-echo "AP configured. RetrosPiCam-Setup available at 192.168.4.1"
+nmcli con up "$SSID"
+
+echo "AP active. $SSID broadcasting at 192.168.4.1"

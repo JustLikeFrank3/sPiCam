@@ -4,12 +4,13 @@ Setup service — WiFi provisioning for first-time configuration.
 On a fresh (unconfigured) Pi, the Pi starts in AP mode (RetrosPiCam-Setup).
 This service is reachable at 192.168.4.1:8000 and handles:
   - Reporting configuration state
-  - Scanning nearby WiFi networks
-  - Accepting WiFi credentials, writing wpa_supplicant.conf, and rebooting
+  - Scanning nearby WiFi networks (via nmcli)
+  - Accepting WiFi credentials, adding an NM connection, and rebooting
     the Pi into normal client mode.
+
+Pi OS Bookworm uses NetworkManager — wpa_supplicant.conf / dhcpcd are NOT used.
 """
 
-import re
 import subprocess
 import threading
 import time
@@ -19,8 +20,7 @@ from pathlib import Path
 _BASE_DIR = Path(__file__).resolve().parent.parent
 CONFIGURED_MARKER = _BASE_DIR / ".wifi_configured"
 
-WPA_CONF = Path("/etc/wpa_supplicant/wpa_supplicant.conf")
-DHCPCD_CONF = Path("/etc/dhcpcd.conf")
+AP_CON_NAME = "RetrosPiCam-Setup"
 
 
 # ---------------------------------------------------------------------------
@@ -35,20 +35,24 @@ def is_configured() -> bool:
 def scan_networks() -> list[dict]:
     """Return list of {ssid: str, signal: int} sorted strongest first."""
     try:
+        # Trigger a fresh scan first (best-effort)
+        subprocess.run(
+            ["sudo", "nmcli", "dev", "wifi", "rescan"],
+            capture_output=True, timeout=10,
+        )
         result = subprocess.run(
-            ["sudo", "iwlist", "wlan0", "scan"],
+            ["nmcli", "-t", "-f", "SSID,SIGNAL", "dev", "wifi", "list"],
             capture_output=True, text=True, timeout=15,
         )
-        return _parse_iwlist(result.stdout)
+        return _parse_nmcli_wifi(result.stdout)
     except Exception as exc:
         print(f"[RetrosPiCam] WiFi scan failed: {exc}")
         return []
 
 
 def save_wifi_and_reboot(ssid: str, password: str) -> None:
-    """Write credentials, disable AP mode, mark configured, and reboot."""
-    _write_wpa_supplicant(ssid, password)
-    _restore_dhcpcd()
+    """Add NM WiFi connection, mark configured, and reboot."""
+    _configure_wifi_nmcli(ssid, password)
     CONFIGURED_MARKER.touch()
     # Reboot after short delay so HTTP response can be delivered
     threading.Thread(target=_delayed_reboot, daemon=True).start()
@@ -66,52 +70,65 @@ def factory_reset() -> None:
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _parse_iwlist(output: str) -> list[dict]:
+def _parse_nmcli_wifi(output: str) -> list[dict]:
+    """Parse `nmcli -t -f SSID,SIGNAL dev wifi list` output."""
     networks: list[dict] = []
     seen: set[str] = set()
-    for cell in re.split(r"Cell \d+ -", output):
-        ssid_m = re.search(r'ESSID:"([^"]+)"', cell)
-        sig_m = re.search(r"Signal level=(-?\d+)", cell)
-        if ssid_m:
-            ssid = ssid_m.group(1).strip()
-            signal = int(sig_m.group(1)) if sig_m else -100
-            if ssid and ssid not in seen:
-                seen.add(ssid)
-                networks.append({"ssid": ssid, "signal": signal})
+    for line in output.splitlines():
+        parts = line.split(":")
+        if len(parts) < 2:
+            continue
+        ssid = parts[0].strip()
+        try:
+            signal = int(parts[1].strip())
+        except ValueError:
+            signal = 0
+        if ssid and ssid not in seen:
+            seen.add(ssid)
+            networks.append({"ssid": ssid, "signal": signal})
     networks.sort(key=lambda x: x["signal"], reverse=True)
     return networks
 
 
-def _write_wpa_supplicant(ssid: str, password: str) -> None:
-    content = (
-        "ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev\n"
-        "update_config=1\n"
-        "country=US\n\n"
-        "network={\n"
-        f'    ssid="{ssid}"\n'
-        f'    psk="{password}"\n'
-        "}\n"
+def _configure_wifi_nmcli(ssid: str, password: str) -> None:
+    """Create (or replace) a NM WiFi connection for the given credentials."""
+    # Remove any existing connection with this name (idempotent)
+    subprocess.run(
+        ["sudo", "nmcli", "con", "delete", ssid],
+        check=False, capture_output=True,
     )
-    WPA_CONF.write_text(content)
-    subprocess.run(["sudo", "chmod", "600", str(WPA_CONF)], check=False)
-
-
-def _restore_dhcpcd() -> None:
-    """Remove the static wlan0 block that setup-ap.sh appended."""
-    if not DHCPCD_CONF.exists():
-        return
-    content = DHCPCD_CONF.read_text()
-    content = re.sub(
-        r"\ninterface wlan0\nstatic ip_address=192\.168\.4\.1/24\nnohook wpa_supplicant\n?",
-        "",
-        content,
+    # Add the new connection with autoconnect enabled
+    subprocess.run(
+        [
+            "sudo", "nmcli", "con", "add",
+            "type", "wifi",
+            "ifname", "wlan0",
+            "con-name", ssid,
+            "ssid", ssid,
+            "wifi-sec.key-mgmt", "wpa-psk",
+            "wifi-sec.psk", password,
+            "connection.autoconnect", "yes",
+        ],
+        check=True,
     )
-    DHCPCD_CONF.write_text(content)
+    # Re-enable autoconnect on ALL wifi connections that setup-ap.sh disabled
+    result = subprocess.run(
+        ["nmcli", "-t", "-f", "NAME,TYPE", "con", "show"],
+        capture_output=True, text=True,
+    )
+    for line in result.stdout.splitlines():
+        parts = line.split(":")
+        if len(parts) >= 2 and parts[1].strip() == "wifi":
+            con_name = parts[0].strip()
+            subprocess.run(
+                ["sudo", "nmcli", "con", "modify", con_name, "connection.autoconnect", "yes"],
+                check=False, capture_output=True,
+            )
 
 
 def _delayed_reboot() -> None:
     time.sleep(3)
-    # Tear down the NM hotspot connection if it exists
-    subprocess.run(["sudo", "nmcli", "con", "down", "RetrosPiCam-Setup"], check=False, capture_output=True)
-    subprocess.run(["sudo", "nmcli", "con", "delete", "RetrosPiCam-Setup"], check=False, capture_output=True)
+    # Tear down and remove the AP hotspot connection
+    subprocess.run(["sudo", "nmcli", "con", "down", AP_CON_NAME], check=False, capture_output=True)
+    subprocess.run(["sudo", "nmcli", "con", "delete", AP_CON_NAME], check=False, capture_output=True)
     subprocess.run(["sudo", "reboot"], check=False)
