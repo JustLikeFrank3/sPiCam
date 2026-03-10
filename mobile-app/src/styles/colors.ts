@@ -30,7 +30,7 @@ export const Colors = {
   inputBorder: 'rgba(111, 147, 165, 0.3)',
 
   // Glow / depth
-  primaryGlow: 'rgba(64, 114, 138, 0.35)',
+  primaryGlow: 'rgba(64, 114, 138, 0.55)',
   chipBg: 'rgba(64, 114, 138, 0.12)',
   successChipBg: 'rgba(116, 170, 66, 0.12)',
   errorChipBg: 'rgba(188, 31, 69, 0.14)',

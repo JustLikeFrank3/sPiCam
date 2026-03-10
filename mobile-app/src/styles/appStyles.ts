@@ -2,10 +2,10 @@ import { StyleSheet } from 'react-native'
 import { Colors, Spacing, BorderRadius } from './colors'
 
 export const F = {
-  regular: 'Inter_400Regular',
-  medium: 'Inter_500Medium',
-  semibold: 'Inter_600SemiBold',
-  bold: 'Inter_700Bold',
+  regular: 'Jost_400Regular',
+  medium: 'Jost_500Medium',
+  semibold: 'Jost_600SemiBold',
+  bold: 'Jost_700Bold',
 }
 
 export const styles = StyleSheet.create({
@@ -467,16 +467,18 @@ export const styles = StyleSheet.create({
   },
   button: {
     backgroundColor: Colors.primary,
-    paddingVertical: 14,
+    paddingVertical: 15,
     paddingHorizontal: Spacing.xl,
     borderRadius: BorderRadius.md,
     alignItems: 'center',
     marginBottom: Spacing.sm,
-    shadowColor: Colors.primaryGlow,
-    shadowOffset: { width: 0, height: 3 },
+    borderWidth: 1,
+    borderColor: 'rgba(171, 201, 216, 0.18)',
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.55,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowRadius: 16,
+    elevation: 8,
   },
   buttonText: {
     color: Colors.text,
@@ -563,11 +565,13 @@ export const styles = StyleSheet.create({
     borderRadius: BorderRadius.md,
     alignItems: 'center',
     backgroundColor: Colors.primary,
-    shadowColor: Colors.primaryGlow,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.5,
-    shadowRadius: 6,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(171, 201, 216, 0.18)',
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.55,
+    shadowRadius: 10,
+    elevation: 6,
   },
   stepButtonText: {
     color: Colors.textDimmed,
