@@ -1,7 +1,9 @@
 import React from 'react'
 import { FlatList, Image, Pressable, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { Ionicons } from '@expo/vector-icons'
 import { styles } from '../styles/appStyles'
+import { Colors } from '../styles/colors'
 import { getAzureMediaUrl, isPhotoFile, isRawVideoFile, isVideoFile } from '../utils/media'
 
 type EventItem = {
@@ -34,6 +36,26 @@ const getFilterLabel = (filter: 'all' | 'photos' | 'videos') => {
   if (filter === 'all') return 'All'
   if (filter === 'photos') return 'Photos'
   return 'Videos'
+}
+
+const getPillStyle = (isRawVideo: boolean, isVideo: boolean) => {
+  if (isRawVideo) return styles.eventPillRaw
+  if (isVideo) return styles.eventPillVideo
+  return styles.eventPill
+}
+
+const getPillTextStyle = (isRawVideo: boolean, isVideo: boolean) => {
+  if (isRawVideo) return styles.eventPillTextRaw
+  if (isVideo) return styles.eventPillTextVideo
+  return styles.eventPillText
+}
+
+const renderEventPill = (isRawVideo: boolean, isVideo: boolean, label: string) => {
+  return (
+    <View style={getPillStyle(isRawVideo, isVideo)}>
+      <Text style={getPillTextStyle(isRawVideo, isVideo)}>{label}</Text>
+    </View>
+  )
 }
 
 export default function GalleryScreen({
@@ -70,9 +92,7 @@ export default function GalleryScreen({
             </Text>
             <Text style={styles.eventTime}>{item.last_modified ? new Date(item.last_modified).toLocaleString() : 'Unknown'}</Text>
             <View style={styles.eventPillRow}>
-              <View style={styles.eventPill}>
-                <Text style={styles.eventPillText}>{getTypePillLabel(isRawVideo, isVideo)}</Text>
-              </View>
+              {renderEventPill(isRawVideo, isVideo, getTypePillLabel(isRawVideo, isVideo))}
             </View>
           </View>
           <Text style={styles.eventChevron}>›</Text>
@@ -83,12 +103,13 @@ export default function GalleryScreen({
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.sectionHeader}>
-        <Pressable onPress={onBack}>
-          <Text style={styles.link}>Back</Text>
+      <View style={styles.galleryHeader}>
+        <Pressable style={styles.galleryBackButton} onPress={onBack}>
+          <Ionicons name="chevron-back" size={16} color={Colors.primary} />
+          <Text style={styles.galleryBackText}>Back</Text>
         </Pressable>
-        <Text style={styles.sectionTitle}>Recent Events ({filteredEvents.length})</Text>
-        <View style={{ width: 48 }} />
+        <Text style={styles.galleryTitle}>Recent Events</Text>
+        <Text style={styles.galleryCount}>{filteredEvents.length} items</Text>
       </View>
 
       <View style={styles.filterRow}>

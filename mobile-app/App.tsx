@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Platform, Alert, AppState, Linking } from 'react-native'
+import { useFonts, Jost_400Regular, Jost_500Medium, Jost_600SemiBold, Jost_700Bold } from '@expo-google-fonts/jost'
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context'
 import Constants from 'expo-constants'
 import * as MediaLibrary from 'expo-media-library'
@@ -493,6 +494,15 @@ function AppContent() {
 }
 
 export default function App() {
+  const [fontsLoaded] = useFonts({
+    Jost_400Regular,
+    Jost_500Medium,
+    Jost_600SemiBold,
+    Jost_700Bold,
+  })
+
+  if (!fontsLoaded) return null
+
   return (
     <SafeAreaProvider>
       <AppContent />

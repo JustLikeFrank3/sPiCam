@@ -26,8 +26,17 @@ export const Colors = {
 
   // Transparent
   primaryTransparent: 'rgba(64, 114, 138, 0.2)',
-  borderColor: 'rgba(111, 147, 165, 0.2)',
+  borderColor: 'rgba(111, 147, 165, 0.12)',
   inputBorder: 'rgba(111, 147, 165, 0.3)',
+
+  // Glow / depth
+  primaryGlow: 'rgba(64, 114, 138, 0.55)',
+  chipBg: 'rgba(64, 114, 138, 0.12)',
+  successChipBg: 'rgba(116, 170, 66, 0.12)',
+  errorChipBg: 'rgba(188, 31, 69, 0.14)',
+  successGlow: 'rgba(116, 170, 66, 0.3)',
+  cardBorder: 'rgba(171, 201, 216, 0.07)',
+  divider: 'rgba(111, 147, 165, 0.1)',
 }
 
 export const Spacing = {
