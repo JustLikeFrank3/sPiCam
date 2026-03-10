@@ -40,13 +40,13 @@ class NotificationService:
             if isinstance(data, list):
                 self.push_tokens = {str(token) for token in data}
         except Exception as exc:
-            print(f"[PiCam] Failed to load push tokens: {exc}")
+            print(f"[RetrosPiCam] Failed to load push tokens: {exc}")
 
     def save_push_tokens(self) -> None:
         try:
             self.push_tokens_file.write_text(json.dumps(sorted(self.push_tokens)))
         except Exception as exc:
-            print(f"[PiCam] Failed to save push tokens: {exc}")
+            print(f"[RetrosPiCam] Failed to save push tokens: {exc}")
 
     def register_token(self, token: str) -> None:
         self.push_tokens.add(token)

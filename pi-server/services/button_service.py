@@ -31,9 +31,9 @@ class ButtonService:
             GPIO.setmode(GPIO.BCM)
             GPIO.setup(self.gpio_pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
             self.button_gpio_initialized = True
-            print(f"[PiCam] Shutter button initialized on GPIO {self.gpio_pin}")
+            print(f"[RetrosPiCam] Shutter button initialized on GPIO {self.gpio_pin}")
         except Exception as exc:
-            print(f"[PiCam] Button GPIO init failed: {exc}")
+            print(f"[RetrosPiCam] Button GPIO init failed: {exc}")
         return self.button_gpio_initialized
 
     def loop(self) -> None:
@@ -42,30 +42,30 @@ class ButtonService:
 
         import RPi.GPIO as GPIO
 
-        print("[PiCam] Button handler thread started (polling mode)")
+        print("[RetrosPiCam] Button handler thread started (polling mode)")
         last_state = GPIO.HIGH
 
         while True:
             try:
                 current_state = GPIO.input(self.gpio_pin)
                 if last_state == GPIO.HIGH and current_state == GPIO.LOW:
-                    print(f"[PiCam] Button press detected on GPIO {self.gpio_pin}")
+                    print(f"[RetrosPiCam] Button press detected on GPIO {self.gpio_pin}")
                     press_start = time.time()
 
                     while GPIO.input(self.gpio_pin) == GPIO.LOW:
                         time.sleep(0.05)
 
                     press_duration = time.time() - press_start
-                    print(f"[PiCam] Button released after {press_duration:.2f}s")
+                    print(f"[RetrosPiCam] Button released after {press_duration:.2f}s")
 
                     if press_duration < 0.5:
-                        print(f"[PiCam] Button: short press ({press_duration:.2f}s) - capturing photo")
+                        print(f"[RetrosPiCam] Button: short press ({press_duration:.2f}s) - capturing photo")
                         self.capture_photo()
                     elif press_duration < 2.0:
-                        print(f"[PiCam] Button: medium hold ({press_duration:.2f}s) - recording 30s")
+                        print(f"[RetrosPiCam] Button: medium hold ({press_duration:.2f}s) - recording 30s")
                         self.start_recording(30)
                     else:
-                        print(f"[PiCam] Button: long hold ({press_duration:.2f}s) - recording 60s")
+                        print(f"[RetrosPiCam] Button: long hold ({press_duration:.2f}s) - recording 60s")
                         self.start_recording(60)
 
                     time.sleep(0.3)
@@ -75,8 +75,8 @@ class ButtonService:
             except Exception as exc:
                 import traceback
 
-                print(f"[PiCam] Button handler error: {type(exc).__name__}: {exc}")
-                print(f"[PiCam] Traceback: {traceback.format_exc()}")
+                print(f"[RetrosPiCam] Button handler error: {type(exc).__name__}: {exc}")
+                print(f"[RetrosPiCam] Traceback: {traceback.format_exc()}")
                 time.sleep(1)
 
     def start(self) -> None:

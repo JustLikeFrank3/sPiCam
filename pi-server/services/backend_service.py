@@ -35,13 +35,13 @@ class BackendService:
 
     def _upload_blob(self, path: Path) -> None:
         if not self.azure_service.is_configured:
-            print(f"[PiCam] Azure upload skipped for {path.name}")
+            print(f"[RetrosPiCam] Azure upload skipped for {path.name}")
             return
         try:
             self.azure_service.upload_path(path)
-            print(f"[PiCam] Azure upload ok: {path.name}")
+            print(f"[RetrosPiCam] Azure upload ok: {path.name}")
         except Exception as exc:
-            print(f"[PiCam] Azure upload failed for {path.name}: {exc}")
+            print(f"[RetrosPiCam] Azure upload failed for {path.name}: {exc}")
 
     def load_push_tokens(self) -> None:
         self.notification_service.load_push_tokens()
@@ -81,7 +81,7 @@ class BackendService:
         timestamp = int(time.time())
         output_path = self.media_dir / f"photo_{timestamp}.jpg"
         self.camera_service.capture_photo(output_path)
-        print(f"[PiCam] Photo captured: {output_path.name}")
+        print(f"[RetrosPiCam] Photo captured: {output_path.name}")
         self._upload_blob(output_path)
         self._add_notification(f"Photo captured: {output_path.name}", "photo")
         threading.Thread(
@@ -141,16 +141,16 @@ class BackendService:
 
     def start_recording_internal(self, duration: int) -> None:
         if self.recording_state["is_recording"]:
-            print("[PiCam] Recording already in progress, ignoring button press")
+            print("[RetrosPiCam] Recording already in progress, ignoring button press")
             return
         if not self.camera_service.picamera_available:
-            print("[PiCam] Camera not available for recording")
+            print("[RetrosPiCam] Camera not available for recording")
             return
 
         duration = max(5, min(120, duration))
         self.recording_state.update({"is_recording": True, "duration": duration, "start_time": time.time()})
         threading.Thread(target=self._record_video, args=(duration,), daemon=True).start()
-        print(f"[PiCam] Recording started: {duration}s")
+        print(f"[RetrosPiCam] Recording started: {duration}s")
         self._add_notification(f"Recording started: {duration}s video", "recording")
         threading.Thread(
             target=self.notification_service.send_push_notification_sync,

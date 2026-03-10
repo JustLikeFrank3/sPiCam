@@ -24,7 +24,7 @@ MEDIA_DIR = settings.media_dir
 MEDIA_DIR.mkdir(exist_ok=True)
 
 if not azure_service.is_configured:
-    print("[PiCam] Azure upload disabled: AZURE_STORAGE_CONNECTION_STRING not set")
+    print("[RetrosPiCam] Azure upload disabled: AZURE_STORAGE_CONNECTION_STRING not set")
 
 STREAM_STALE_SEC = settings.stream_stale_sec
 STREAM_DEBOUNCE_SEC = settings.stream_debounce_sec
