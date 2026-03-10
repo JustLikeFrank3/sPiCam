@@ -93,7 +93,8 @@ class ButtonService:
                 current_state = GPIO.input(self.gpio_pin)
                 if last_state == GPIO.HIGH and current_state == GPIO.LOW:
                     print(f"[RetrosPiCam] Button press detected on GPIO {self.gpio_pin}")
-                    press_duration = self._wait_for_release(GPIO)                    print(f"[RetrosPiCam] Button released after {press_duration:.2f}s")
+                    press_duration = self._wait_for_release(GPIO)
+                    print(f"[RetrosPiCam] Button released after {press_duration:.2f}s")
                     self._handle_shutter_press(press_duration)
                     time.sleep(0.3)
 
