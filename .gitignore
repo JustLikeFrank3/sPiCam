@@ -41,5 +41,5 @@ mobile-app/ios/*.xcodeproj/project.xcworkspace/
 # Media
 pi-server/media/
 
-# Scripts (generated GitHub issue scripts)
-scripts/
+# Scripts (generated GitHub issue scripts — root only)
+/scripts/

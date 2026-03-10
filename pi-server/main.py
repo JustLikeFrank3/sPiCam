@@ -7,7 +7,7 @@ except Exception:
     PICAMERA_AVAILABLE = False
 
 from config import settings
-from routers import azure_router, create_camera_router, create_events_router, create_notifications_router, create_motion_router
+from routers import azure_router, create_camera_router, create_events_router, create_notifications_router, create_motion_router, create_setup_router
 from services import (
     azure_service,
     notification_service,
@@ -20,6 +20,7 @@ from services import (
 
 app = FastAPI()
 app.include_router(azure_router)
+app.include_router(create_setup_router())
 MEDIA_DIR = settings.media_dir
 MEDIA_DIR.mkdir(exist_ok=True)
 

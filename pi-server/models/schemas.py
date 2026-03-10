@@ -14,3 +14,8 @@ class MotionSettings(BaseModel):
     threshold: Optional[int] = None
     min_area: Optional[int] = None
     cooldown: Optional[int] = None
+
+
+class WiFiCredentials(BaseModel):
+    ssid: str
+    password: str

@@ -4,6 +4,7 @@ from .button_service import ButtonService
 from .camera_service import CameraService
 from .motion_service import MotionService
 from .notification_service import NotificationService, notification_service
+from .setup_service import is_configured, scan_networks, save_wifi_and_reboot
 from .startup_service import StartupService
 
 __all__ = [
@@ -16,4 +17,7 @@ __all__ = [
 	"notification_service",
 	"MotionService",
 	"StartupService",
+	"is_configured",
+	"scan_networks",
+	"save_wifi_and_reboot",
 ]
