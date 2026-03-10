@@ -54,6 +54,14 @@ def save_wifi_and_reboot(ssid: str, password: str) -> None:
     threading.Thread(target=_delayed_reboot, daemon=True).start()
 
 
+def factory_reset() -> None:
+    """Delete wifi_configured marker and reboot into AP setup mode."""
+    print("[RetrosPiCam] Factory reset triggered — removing WiFi config and rebooting into setup mode")
+    if CONFIGURED_MARKER.exists():
+        CONFIGURED_MARKER.unlink()
+    threading.Thread(target=_delayed_reboot, daemon=True).start()
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

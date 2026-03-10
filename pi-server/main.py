@@ -16,6 +16,7 @@ from services import (
     ButtonService,
     StartupService,
     BackendService,
+    factory_reset,
 )
 
 app = FastAPI()
@@ -77,6 +78,9 @@ button_service = ButtonService(
     gpio_pin=SHUTTER_BUTTON_GPIO,
     capture_photo=backend_service.capture_photo_internal,
     start_recording=backend_service.start_recording_internal,
+    factory_reset=factory_reset,
+    reset_button_enabled=settings.reset_button_enabled,
+    reset_button_gpio=settings.reset_button_gpio,
 )
 
 startup_service = StartupService(

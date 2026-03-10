@@ -4,7 +4,7 @@ from .button_service import ButtonService
 from .camera_service import CameraService
 from .motion_service import MotionService
 from .notification_service import NotificationService, notification_service
-from .setup_service import is_configured, scan_networks, save_wifi_and_reboot
+from .setup_service import is_configured, scan_networks, save_wifi_and_reboot, factory_reset
 from .startup_service import StartupService
 
 __all__ = [
@@ -20,4 +20,5 @@ __all__ = [
 	"is_configured",
 	"scan_networks",
 	"save_wifi_and_reboot",
+	"factory_reset",
 ]

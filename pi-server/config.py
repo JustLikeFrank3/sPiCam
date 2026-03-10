@@ -34,5 +34,10 @@ class Settings:
 	shutter_button_gpio: int = int(os.getenv("SHUTTER_BUTTON_GPIO", "17"))
 	media_retention_days: int = int(os.getenv("MEDIA_RETENTION_DAYS", "7"))
 
+	# Factory reset via dedicated GPIO pin (hold LOW for 3s)
+	# Set RESET_BUTTON_ENABLED=0 to disable. Uses GPIO 27 by default.
+	reset_button_enabled: bool = os.getenv("RESET_BUTTON_ENABLED", "1") == "1"
+	reset_button_gpio: int = int(os.getenv("RESET_BUTTON_GPIO", "27"))
+
 
 settings = Settings()
