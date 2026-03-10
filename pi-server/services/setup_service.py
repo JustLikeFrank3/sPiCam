@@ -111,11 +111,7 @@ def _restore_dhcpcd() -> None:
 
 def _delayed_reboot() -> None:
     time.sleep(3)
-    for cmd in [
-        ["sudo", "systemctl", "stop", "hostapd"],
-        ["sudo", "systemctl", "stop", "dnsmasq"],
-        ["sudo", "systemctl", "disable", "hostapd"],
-        ["sudo", "systemctl", "disable", "dnsmasq"],
-        ["sudo", "reboot"],
-    ]:
-        subprocess.run(cmd, check=False)
+    # Tear down the NM hotspot connection if it exists
+    subprocess.run(["sudo", "nmcli", "con", "down", "RetrosPiCam-Setup"], check=False, capture_output=True)
+    subprocess.run(["sudo", "nmcli", "con", "delete", "RetrosPiCam-Setup"], check=False, capture_output=True)
+    subprocess.run(["sudo", "reboot"], check=False)

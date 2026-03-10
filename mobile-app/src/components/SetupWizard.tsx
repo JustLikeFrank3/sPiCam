@@ -279,7 +279,7 @@ function StepConnectToAP() {
       </View>
       <Pressable
         style={[wiz.secondaryButton, { marginTop: Spacing.lg }]}
-        onPress={() => Linking.openURL('App-Prefs:root=WIFI')}
+        onPress={() => Linking.openURL('App-Prefs:WIFI')}
       >
         <Ionicons name="settings-outline" size={18} color={Colors.primary} style={{ marginRight: 8 }} />
         <Text style={wiz.secondaryButtonText}>Open WiFi Settings</Text>
@@ -395,7 +395,7 @@ function StepReconnectHome({ ssid }: Readonly<{ ssid: string }>) {
       <Text style={wiz.body}>Open iPhone WiFi settings and reconnect to your home network.</Text>
       <Pressable
         style={[wiz.secondaryButton, { marginTop: Spacing.md }]}
-        onPress={() => Linking.openURL('App-Prefs:root=WIFI')}
+        onPress={() => Linking.openURL('App-Prefs:WIFI')}
       >
         <Ionicons name="settings-outline" size={18} color={Colors.primary} style={{ marginRight: 8 }} />
         <Text style={wiz.secondaryButtonText}>Open WiFi Settings</Text>
