@@ -15,6 +15,7 @@ type Props = {
   notificationCooldown: number
   onChangeNotificationCooldown: (value: number) => void
   onUpdateMotionSettings: () => void
+  onSetupDevice: () => void
   onClose: () => void
 }
 
@@ -29,6 +30,7 @@ export default function SettingsModal({
   notificationCooldown,
   onChangeNotificationCooldown,
   onUpdateMotionSettings,
+  onSetupDevice,
   onClose,
 }: Readonly<Props>) {
   return (
@@ -46,6 +48,9 @@ export default function SettingsModal({
           <Text style={styles.modalText}>
             The base URL of your Raspberry Pi server. Use a Tailscale IP for remote access.
           </Text>
+          <Pressable style={[styles.updateButton, { marginBottom: 16 }]} onPress={onSetupDevice}>
+            <Text style={styles.updateButtonText}>Set Up Device…</Text>
+          </Pressable>
           <View style={styles.inputRow}>
             <Text style={styles.inputLabel}>Base URL</Text>
             <TextInput

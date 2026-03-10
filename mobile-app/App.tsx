@@ -13,6 +13,7 @@ import MediaPreviewScreen from './src/components/MediaPreviewScreen'
 import MainDashboard from './src/components/MainDashboard'
 import SettingsModal from './src/components/SettingsModal'
 import NotificationsModal from './src/components/NotificationsModal'
+import SetupWizard from './src/components/SetupWizard'
 import { styles } from './src/styles/appStyles'
 import { canSaveToPhotos, formatCustomBaseUrl, getAzureMediaUrl, isRawVideoFile } from './src/utils/media'
 import { checkConnection as checkConnectionRequest, retryConnection as retryConnectionRequest } from './src/utils/connection'
@@ -56,6 +57,7 @@ function AppContent() {
   const [showConnectionHelp, setShowConnectionHelp] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
+  const [showSetup, setShowSetup] = useState(false)
   const [customIp, setCustomIp] = useState('')
   const isConnectionCheckInFlight = useRef(false)
 
@@ -429,7 +431,17 @@ function AppContent() {
         notificationCooldown={notificationCooldown}
         onChangeNotificationCooldown={setNotificationCooldown}
         onUpdateMotionSettings={() => { void updateMotionSettings() }}
+        onSetupDevice={() => { setShowSettings(false); setShowSetup(true) }}
         onClose={() => setShowSettings(false)}
+      />
+
+      <SetupWizard
+        visible={showSetup}
+        onComplete={url => {
+          setBaseUrl(url)
+          setShowSetup(false)
+        }}
+        onSkip={() => setShowSetup(false)}
       />
 
       <NotificationsModal
