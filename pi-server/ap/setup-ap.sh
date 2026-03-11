@@ -28,6 +28,8 @@ nmcli con add \
     autoconnect no \
     ssid "$SSID" \
     mode ap \
+    wifi.band bg \
+    wifi.channel 6 \
     wifi-sec.key-mgmt wpa-psk \
     wifi-sec.psk "$PASSWORD" \
     ipv4.method shared \

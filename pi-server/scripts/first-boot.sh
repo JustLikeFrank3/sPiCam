@@ -18,6 +18,12 @@ if [ -f "$MARKER" ]; then
     exit 0
 fi
 
+# If AP is already active, skip teardown/recreate cycle
+if nmcli con show --active 2>/dev/null | grep -q "RetrosPiCam-Setup"; then
+    echo "[RetrosPiCam] AP already active, skipping setup."
+    exit 0
+fi
+
 echo "[RetrosPiCam] No WiFi config found. Starting AP mode for setup..."
 bash "$PI_SERVER_DIR/ap/setup-ap.sh"
 echo "[RetrosPiCam] AP mode active. Pi reachable at 192.168.4.1:8000"
