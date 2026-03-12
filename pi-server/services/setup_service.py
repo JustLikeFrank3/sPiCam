@@ -97,7 +97,9 @@ def _configure_wifi_nmcli(ssid: str, password: str) -> None:
         ["sudo", "nmcli", "con", "delete", ssid],
         check=False, capture_output=True,
     )
-    # Add the new connection with autoconnect enabled
+    # Add the new connection with autoconnect enabled and priority 50
+    # (lower than AP priority 100 so NM won't fight us while still in setup mode,
+    # but _delayed_reboot deletes the AP before reboot so it wins on next boot)
     subprocess.run(
         [
             "sudo", "nmcli", "con", "add",
@@ -108,22 +110,10 @@ def _configure_wifi_nmcli(ssid: str, password: str) -> None:
             "wifi-sec.key-mgmt", "wpa-psk",
             "wifi-sec.psk", password,
             "connection.autoconnect", "yes",
+            "connection.autoconnect-priority", "50",
         ],
         check=True,
     )
-    # Re-enable autoconnect on ALL wifi connections that setup-ap.sh disabled
-    result = subprocess.run(
-        ["nmcli", "-t", "-f", "NAME,TYPE", "con", "show"],
-        capture_output=True, text=True,
-    )
-    for line in result.stdout.splitlines():
-        parts = line.split(":")
-        if len(parts) >= 2 and parts[1].strip() == "wifi":
-            con_name = parts[0].strip()
-            subprocess.run(
-                ["sudo", "nmcli", "con", "modify", con_name, "connection.autoconnect", "yes"],
-                check=False, capture_output=True,
-            )
 
 
 def _delayed_reboot() -> None:
