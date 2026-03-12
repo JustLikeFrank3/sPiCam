@@ -121,4 +121,18 @@ def _delayed_reboot() -> None:
     # Tear down and remove the AP hotspot connection
     subprocess.run(["sudo", "nmcli", "con", "down", AP_CON_NAME], check=False, capture_output=True)
     subprocess.run(["sudo", "nmcli", "con", "delete", AP_CON_NAME], check=False, capture_output=True)
+    # Re-enable autoconnect on all WiFi connections that setup-ap.sh disabled
+    # so the Pi can join home WiFi after reboot
+    result = subprocess.run(
+        ["nmcli", "-t", "-f", "NAME,TYPE", "con", "show"],
+        capture_output=True, text=True,
+    )
+    for line in result.stdout.splitlines():
+        parts = line.split(":")
+        if len(parts) >= 2 and parts[1].strip() == "wifi":
+            con_name = parts[0].strip()
+            subprocess.run(
+                ["sudo", "nmcli", "con", "modify", con_name, "connection.autoconnect", "yes"],
+                check=False, capture_output=True,
+            )
     subprocess.run(["sudo", "reboot"], check=False)
