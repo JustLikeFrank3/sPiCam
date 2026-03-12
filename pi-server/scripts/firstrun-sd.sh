@@ -39,13 +39,9 @@ set -euo pipefail
 SSID="RetrosPiCam-Setup"
 PASSWORD="retrospicam1234"
 
-# If the AP connection is already active, nothing to do
-if nmcli con show --active 2>/dev/null | grep -q "$SSID"; then
-    echo "AP already active, nothing to do."
-    exit 0
-fi
-
-# Remove stale AP connection if present
+# Always delete and recreate the AP profile so the password is always correct.
+# Do NOT add an early "already active" check here — that would skip the delete
+# and leave a stale profile with the wrong password in place.
 nmcli con delete "$SSID" 2>/dev/null || true
 
 # Disable autoconnect on ALL other WiFi connections so home WiFi can never
@@ -55,8 +51,8 @@ for CON in $(nmcli -t -f NAME,TYPE con show | grep ':wifi$' | cut -d: -f1); do
     nmcli con modify "$CON" connection.autoconnect no 2>/dev/null || true
 done
 
-# Create AP connection — autoconnect yes keeps NM from abandoning it;
-# priority 100 beats any home WiFi profile if somehow autoconnect is re-enabled
+# Create AP connection — autoconnect yes + priority 100 keeps NM from
+# switching away from the AP if the service restarts
 nmcli con add \
     type wifi \
     ifname wlan0 \
@@ -70,7 +66,7 @@ nmcli con add \
     ipv4.method shared \
     ipv4.addresses "192.168.4.1/24"
 
-# Bring it up — NM transitions wlan0 from whatever state to AP
+# Bring it up
 nmcli con up "$SSID"
 
 echo "AP active. $SSID broadcasting at 192.168.4.1"
@@ -80,7 +76,44 @@ chmod +x "${PI_SERVER}/ap/setup-ap.sh"
 echo "[firstrun-sd] setup-ap.sh updated."
 
 # --------------------------------------------------------------------------
-# 3. Make systemd journal persistent so crash logs survive across reboots
+# 3. Write updated first-boot.sh (remove stale "already active" skip)
+# --------------------------------------------------------------------------
+cat > "${PI_SERVER}/scripts/first-boot.sh" << 'FIRST_BOOT'
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(dirname "$(realpath "$0")")"
+PI_SERVER_DIR="$(realpath "$SCRIPT_DIR/..")"
+MARKER="$PI_SERVER_DIR/.wifi_configured"
+
+if [ -f "$MARKER" ]; then
+    echo "[RetrosPiCam] WiFi provisioned. Starting in normal mode."
+    exit 0
+fi
+
+# Always run setup-ap.sh — it deletes and recreates the NM profile every
+# time, guaranteeing the correct password is always used.
+echo "[RetrosPiCam] No WiFi config found. Starting AP mode for setup..."
+bash "$PI_SERVER_DIR/ap/setup-ap.sh"
+echo "[RetrosPiCam] AP mode active. Pi reachable at 192.168.4.1:8000"
+FIRST_BOOT
+
+chmod +x "${PI_SERVER}/scripts/first-boot.sh"
+echo "[firstrun-sd] first-boot.sh updated."
+
+# --------------------------------------------------------------------------
+# 3. Nuke the stale RetrosPiCam-Setup NM profile and re-enable home WiFi
+#    autoconnect so the Pi isn't stuck in AP-only mode after this patch.
+#    setup-ap.sh will recreate the profile correctly on next service start.
+# --------------------------------------------------------------------------
+nmcli con delete "RetrosPiCam-Setup" 2>/dev/null || true
+for CON in $(nmcli -t -f NAME,TYPE con show | grep ':wifi$' | cut -d: -f1); do
+    nmcli con modify "$CON" connection.autoconnect yes 2>/dev/null || true
+done
+echo "[firstrun-sd] Stale AP profile removed, home WiFi autoconnect re-enabled."
+
+# --------------------------------------------------------------------------
+# 4. Make systemd journal persistent so crash logs survive across reboots
 # --------------------------------------------------------------------------
 mkdir -p /var/log/journal
 systemd-tmpfiles --create --prefix /var/log/journal || true
@@ -95,14 +128,14 @@ fi
 echo "[firstrun-sd] Persistent journal enabled."
 
 # --------------------------------------------------------------------------
-# 4. Remove ourselves from cmdline.txt so we don't run again
+# 5. Remove ourselves from cmdline.txt so we don't run again
 # --------------------------------------------------------------------------
 sed -i 's| systemd\.run=[^ ]*||g;s| systemd\.run_success_action=[^ ]*||g;s| systemd\.run_failure_action=[^ ]*||g' "$BOOT_CMDLINE"
 rm -f /boot/firmware/firstrun.sh
 echo "[firstrun-sd] Cleaned up cmdline.txt and firstrun.sh."
 
 # --------------------------------------------------------------------------
-# 5. Reboot into the fixed AP mode
+# 6. Reboot into the fixed AP mode
 # --------------------------------------------------------------------------
 echo "[firstrun-sd] All patches applied. Rebooting..."
 reboot

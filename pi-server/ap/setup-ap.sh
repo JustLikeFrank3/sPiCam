@@ -6,13 +6,9 @@ set -euo pipefail
 SSID="RetrosPiCam-Setup"
 PASSWORD="retrospicam1234"
 
-# If the AP connection is already active, nothing to do
-if nmcli con show --active 2>/dev/null | grep -q "$SSID"; then
-    echo "AP already active, nothing to do."
-    exit 0
-fi
-
-# Remove stale AP connection if present
+# Always delete and recreate the AP profile so the password is always correct.
+# Do NOT add an early "already active" check here — that would skip the delete
+# and leave a stale profile with the wrong password in place.
 nmcli con delete "$SSID" 2>/dev/null || true
 
 # Disable autoconnect on ALL other WiFi connections so home WiFi can never
@@ -22,8 +18,8 @@ for CON in $(nmcli -t -f NAME,TYPE con show | grep ':wifi$' | cut -d: -f1); do
     nmcli con modify "$CON" connection.autoconnect no 2>/dev/null || true
 done
 
-# Create AP connection — autoconnect yes keeps NM from abandoning it;
-# priority 100 beats any home WiFi profile if somehow autoconnect is re-enabled
+# Create AP connection — autoconnect yes + priority 100 keeps NM from
+# switching away from the AP if the service restarts
 nmcli con add \
     type wifi \
     ifname wlan0 \
@@ -37,7 +33,7 @@ nmcli con add \
     ipv4.method shared \
     ipv4.addresses "192.168.4.1/24"
 
-# Bring it up — NM transitions wlan0 from whatever state to AP
+# Bring it up
 nmcli con up "$SSID"
 
 echo "AP active. $SSID broadcasting at 192.168.4.1"
