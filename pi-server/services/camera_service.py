@@ -97,6 +97,8 @@ class CameraService:
                 except Exception:
                     pass
             self.picam = None
+            # Mark unavailable so we don't retry in a tight loop and spike CPU
+            self.picamera_available = False
 
     def get_frame_array(self) -> Optional[np.ndarray]:
         if self.stream_active:
