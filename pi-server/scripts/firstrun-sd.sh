@@ -114,15 +114,24 @@ chmod +x "${PI_SERVER}/scripts/first-boot.sh"
 echo "[firstrun-sd] first-boot.sh updated."
 
 # --------------------------------------------------------------------------
-# 3. Nuke the stale RetrosPiCam-Setup NM profile and re-enable home WiFi
-#    autoconnect so the Pi isn't stuck in AP-only mode after this patch.
-#    setup-ap.sh will recreate the profile correctly on next service start.
+# 3. Delete the stale RetrosPiCam-Setup NM profile FILE directly.
+#    nmcli requires NM to be running — it isn't yet during systemd.run.
+#    Deleting the file works at any boot stage.
+#    After the reboot (step 6), NM starts fresh with no RetrosPiCam-Setup
+#    profile, so first-boot.sh will run setup-ap.sh and create it correctly.
 # --------------------------------------------------------------------------
-nmcli con delete "RetrosPiCam-Setup" 2>/dev/null || true
-for CON in $(nmcli -t -f NAME,TYPE con show | grep ':wifi$' | cut -d: -f1); do
-    nmcli con modify "$CON" connection.autoconnect yes 2>/dev/null || true
+rm -f /etc/NetworkManager/system-connections/RetrosPiCam-Setup.nmconnection 2>/dev/null || true
+rm -f "/etc/NetworkManager/system-connections/RetrosPiCam-Setup" 2>/dev/null || true
+echo "[firstrun-sd] Stale AP profile file deleted."
+
+# Re-enable autoconnect on all other WiFi profiles by editing their files directly
+# (nmcli not available at this boot stage)
+for f in /etc/NetworkManager/system-connections/*.nmconnection /etc/NetworkManager/system-connections/*; do
+    [ -f "$f" ] || continue
+    grep -q 'mode=ap' "$f" 2>/dev/null && continue  # skip AP profiles
+    sed -i 's/^autoconnect=false$/autoconnect=true/' "$f" 2>/dev/null || true
 done
-echo "[firstrun-sd] Stale AP profile removed, home WiFi autoconnect re-enabled."
+echo "[firstrun-sd] Home WiFi autoconnect re-enabled in profile files."
 
 # --------------------------------------------------------------------------
 # 4. Make systemd journal persistent so crash logs survive across reboots
