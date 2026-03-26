@@ -18,8 +18,20 @@ if [ -f "$MARKER" ]; then
     exit 0
 fi
 
-# Always run setup-ap.sh when not configured — it deletes and recreates the
-# NM profile every time, guaranteeing the correct password is always used.
+# If the AP profile already exists, just ensure it's active.
+# Do NOT call setup-ap.sh (which deletes the active connection) on every
+# service restart — that creates an NM race window on each restart cycle.
+if nmcli con show 2>/dev/null | grep -qw "RetrosPiCam-Setup"; then
+    if nmcli con show --active 2>/dev/null | grep -qw "RetrosPiCam-Setup"; then
+        echo "[RetrosPiCam] AP already active."
+    else
+        echo "[RetrosPiCam] AP profile exists, bringing up..."
+        nmcli con up "RetrosPiCam-Setup" 2>/dev/null || true
+    fi
+    exit 0
+fi
+
+# No AP profile at all — first time in setup mode, run full setup.
 echo "[RetrosPiCam] No WiFi config found. Starting AP mode for setup..."
 bash "$PI_SERVER_DIR/ap/setup-ap.sh"
 echo "[RetrosPiCam] AP mode active. Pi reachable at 192.168.4.1:8000"
