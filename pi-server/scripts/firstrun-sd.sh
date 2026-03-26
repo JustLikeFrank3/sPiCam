@@ -134,7 +134,15 @@ done
 echo "[firstrun-sd] Home WiFi autoconnect re-enabled in profile files."
 
 # --------------------------------------------------------------------------
-# 4. Make systemd journal persistent so crash logs survive across reboots
+# 5. Disable retrospicam service temporarily so it doesn't immediately
+#    switch to AP mode on next boot — gives us time to SSH in and verify.
+#    Re-enable with: sudo systemctl enable --now retrospicam
+# --------------------------------------------------------------------------
+systemctl disable retrospicam 2>/dev/null || true
+echo "[firstrun-sd] retrospicam service disabled (re-enable after SSH fix)."
+
+# --------------------------------------------------------------------------
+# 6. Make systemd journal persistent so crash logs survive across reboots
 # --------------------------------------------------------------------------
 mkdir -p /var/log/journal
 systemd-tmpfiles --create --prefix /var/log/journal || true
@@ -149,14 +157,14 @@ fi
 echo "[firstrun-sd] Persistent journal enabled."
 
 # --------------------------------------------------------------------------
-# 5. Remove ourselves from cmdline.txt so we don't run again
+# 7. Remove ourselves from cmdline.txt so we don't run again
 # --------------------------------------------------------------------------
 sed -i 's| systemd\.run=[^ ]*||g;s| systemd\.run_success_action=[^ ]*||g;s| systemd\.run_failure_action=[^ ]*||g' "$BOOT_CMDLINE"
 rm -f /boot/firmware/firstrun.sh
 echo "[firstrun-sd] Cleaned up cmdline.txt and firstrun.sh."
 
 # --------------------------------------------------------------------------
-# 6. Reboot into the fixed AP mode
+# 8. Reboot into the fixed AP mode
 # --------------------------------------------------------------------------
 echo "[firstrun-sd] All patches applied. Rebooting..."
 reboot
