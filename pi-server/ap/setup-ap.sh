@@ -36,4 +36,9 @@ nmcli con add \
 # Bring it up
 nmcli con up "$SSID"
 
+# Stop the system dnsmasq — it binds port 67 on all interfaces and blocks
+# NetworkManager's internal DHCP server (used by ipv4.method shared).
+# Without this, clients connect to the AP but never get an IP address.
+systemctl stop dnsmasq 2>/dev/null || true
+
 echo "AP active. $SSID broadcasting at 192.168.4.1"
